@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Initial schema creation -->
+    <include file="db/changelog/001-create-notes-table.xml"/>
+    <include file="db/changelog/002-create-tags-table.xml"/>
+    <include file="db/changelog/003-create-note-tags-table.xml"/>
+    <include file="db/changelog/004-create-note-links-table.xml"/>
+
+    <!-- Indexes for performance -->
+<!--    <include file="db/changelog/005-create-indexes.xml"/>-->
+
+    <!-- Schema changes -->
+    <include file="db/changelog/006-remove-source-column.xml"/>
+    <include file="db/changelog/007-create-groups-table.xml"/>
+
+</databaseChangeLog>

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Knowledge Graph - Zappa</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div th:replace="~{fragments/layout :: alerts}"></div>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>
+                        <i class="fas fa-project-diagram me-2"></i>Knowledge Graph
+                    </h2>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-outline-primary" onclick="resetGraph()">
+                            <i class="fas fa-refresh me-1"></i>Reset View
+                        </button>
+                        <button class="btn btn-outline-success" onclick="highlightHubs()">
+                            <i class="fas fa-star me-1"></i>Highlight Hubs
+                        </button>
+                        <button class="btn btn-outline-info" onclick="toggleLabels()">
+                            <i class="fas fa-eye me-1"></i>Toggle Labels
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Group Selection -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body py-2">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <div class="d-flex align-items-center">
+                                            <label class="form-label me-3 mb-0">
+                                                <i class="fas fa-filter me-1"></i>Graph Scope:
+                                            </label>
+                                            <select class="form-select form-select-sm me-3" id="groupSelector" onchange="changeGraphGroup()">
+                                                <option value="">All Notes (Global Graph)</option>
+                                                <option th:each="group : ${allGroups}"
+                                                        th:value="${group.id}"
+                                                        th:text="${group.name}"
+                                                        th:style="'color: ' + ${group.displayColor}"
+                                                        th:selected="${selectedGroup != null and selectedGroup.id == group.id}">Group</option>
+                                            </select>
+                                            <div class="form-check" th:if="${selectedGroup != null}">
+                                                <input class="form-check-input" type="checkbox" id="includeSubGroups"
+                                                       th:checked="${includeSubGroups}" onchange="changeGraphGroup()">
+                                                <label class="form-check-label" for="includeSubGroups">
+                                                    Include subgroups
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div th:if="${selectedGroup != null}" class="alert alert-info py-1 mb-0">
+                                            <small>
+                                                <i th:class="${selectedGroup.displayIcon} + ' me-1'"></i>
+                                                <strong th:text="${selectedGroup.name}">Group</strong>
+                                                <span th:text="'Graph (' + ${totalNodes} + ' nodes, ' + ${totalLinks} + ' links)'">Graph</span>
+                                            </small>
+                                        </div>
+                                        <div th:if="${selectedGroup == null}" class="alert alert-secondary py-1 mb-0">
+                                            <small>
+                                                <i class="fas fa-globe me-1"></i>
+                                                <strong>Global Graph</strong>
+                                                <span th:text="'(' + ${totalNodes} + ' nodes, ' + ${totalLinks} + ' links)'">Graph</span>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Graph stats -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body py-2">
+                                <h5 class="text-primary" th:text="${totalNodes}">0</h5>
+                                <small class="text-muted">Nodes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body py-2">
+                                <h5 class="text-success" th:text="${totalLinks}">0</h5>
+                                <small class="text-muted">Links</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body py-2">
+                                <h5 class="text-info" id="selectedNode">0</h5>
+                                <small class="text-muted">Selected</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body py-2">
+                                <h5 class="text-warning" id="connectedNodes">0</h5>
+                                <small class="text-muted">Connected</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Graph visualization -->
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-network-wired me-2"></i>Interactive Graph
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="graph-container" style="height: 600px; background: #f8f9fa;">
+                            <svg id="graph-svg" width="100%" height="100%"></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Graph controls -->
+                <div class="card mt-3">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <label class="form-label small">Link Type:</label>
+                                <select id="linkTypeFilter" class="form-select form-select-sm" onchange="filterByLinkType()">
+                                    <option value="">All Types</option>
+                                    <option value="REFERENCES">References</option>
+                                    <option value="EXTENDS">Extends</option>
+                                    <option value="IMPLEMENTS">Implements</option>
+                                    <option value="RELATES_TO">Related To</option>
+                                    <option value="CONTRADICTS">Contradicts</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Min Weight:</label>
+                                <input type="range" id="weightFilter" class="form-range" min="1" max="10" value="1"
+                                       oninput="filterByWeight(this.value)">
+                                <small class="text-muted">Weight: <span id="weightValue">1</span></small>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-sm btn-outline-secondary w-100" onclick="exportGraph()">
+                                    <i class="fas fa-download me-1"></i>Export SVG
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Node details sidebar -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Node Details
+                        </h6>
+                    </div>
+                    <div class="card-body" id="nodeDetails">
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-mouse-pointer fa-2x mb-2"></i>
+                            <p>Click on a node to see details</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-palette me-2"></i>Legend
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="small">
+                            <div class="mb-2">
+                                <strong>Graph Legend:</strong>
+                            </div>
+
+                            <div class="mb-2">
+                                <strong>Link Colors (Weight):</strong>
+                            </div>
+                            <div class="mb-1">
+                                <span style="display: inline-block; width: 20px; height: 3px; background-color: #dc3545; margin-right: 5px;"></span>
+                                <small>Critical (8-10)</small>
+                            </div>
+                            <div class="mb-1">
+                                <span style="display: inline-block; width: 20px; height: 3px; background-color: #fd7e14; margin-right: 5px;"></span>
+                                <small>Important (6-7)</small>
+                            </div>
+                            <div class="mb-1">
+                                <span style="display: inline-block; width: 20px; height: 3px; background-color: #ffc107; margin-right: 5px;"></span>
+                                <small>Moderate (4-5)</small>
+                            </div>
+                            <div class="mb-3">
+                                <span style="display: inline-block; width: 20px; height: 3px; background-color: #28a745; margin-right: 5px;"></span>
+                                <small>Light (1-3)</small>
+                            </div>
+
+                            <div class="mb-2">
+                                <strong>Node Size:</strong> Connection count
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick actions -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-bolt me-2"></i>Quick Actions
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="findShortestPath()">
+                                <i class="fas fa-route me-1"></i>Find Path
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="centerGraph()">
+                                <i class="fas fa-crosshairs me-1"></i>Center Graph
+                            </button>
+                            <button class="btn btn-sm btn-outline-info" onclick="showStats()">
+                                <i class="fas fa-chart-bar me-1"></i>Show Stats
+                            </button>
+                            <a href="/notes/new" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-plus me-1"></i>Add Note
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <!-- Path finding modal -->
+    <div class="modal fade" id="pathModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Find Shortest Path</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Select two nodes on the graph, then click this button to find the shortest path between them.</p>
+                    <div id="pathResult"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <script>
+        // Graph visualization with D3.js
+        let graphData = null;
+        let svg = null;
+        let simulation = null;
+        let selectedNodes = [];
+        let showLabels = true;
+
+        // Weight-based color function
+        function getLinkColor(weight) {
+            if (weight >= 8) return '#dc3545';      // Red - Critical
+            if (weight >= 6) return '#fd7e14';      // Orange - Important
+            if (weight >= 4) return '#ffc107';      // Yellow - Moderate
+            return '#28a745';                       // Green - Light
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeGraph();
+            loadGraphData();
+        });
+
+        function initializeGraph() {
+            const container = document.getElementById('graph-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            svg = d3.select('#graph-svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            // Add zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    svg.select('.graph-group').attr('transform', event.transform);
+                });
+
+            svg.call(zoom);
+
+            // Create main group for graph elements
+            svg.append('g').attr('class', 'graph-group');
+        }
+
+        function loadGraphData() {
+            const groupId = getSelectedGroupId();
+            const includeSubGroups = getIncludeSubGroups();
+
+            let url = '/graph/data';
+            const params = new URLSearchParams();
+
+            if (groupId) {
+                params.append('group', groupId);
+                params.append('includeSubGroups', includeSubGroups);
+            }
+
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    graphData = data;
+                    renderGraph();
+                })
+                .catch(error => {
+                    console.error('Error loading graph data:', error);
+                    showError('Failed to load graph data');
+                });
+        }
+
+        function getSelectedGroupId() {
+            const selector = document.getElementById('groupSelector');
+            return selector ? selector.value : '';
+        }
+
+        function getIncludeSubGroups() {
+            const checkbox = document.getElementById('includeSubGroups');
+            return checkbox ? checkbox.checked : false;
+        }
+
+        function changeGraphGroup() {
+            const groupId = getSelectedGroupId();
+            const includeSubGroups = getIncludeSubGroups();
+
+            // Update URL to reflect current selection
+            const url = new URL(window.location);
+            if (groupId) {
+                url.searchParams.set('group', groupId);
+                url.searchParams.set('includeSubGroups', includeSubGroups);
+            } else {
+                url.searchParams.delete('group');
+                url.searchParams.delete('includeSubGroups');
+            }
+
+            // Update URL without page reload
+            window.history.pushState({}, '', url);
+
+            // Reload graph data
+            loadGraphData();
+        }
+
+        function renderGraph() {
+            if (!graphData) return;
+
+            const width = document.getElementById('graph-container').clientWidth;
+            const height = document.getElementById('graph-container').clientHeight;
+
+            // Clear existing graph
+            svg.select('.graph-group').selectAll('*').remove();
+
+            const g = svg.select('.graph-group');
+
+            // Create force simulation
+            simulation = d3.forceSimulation(graphData.nodes)
+                .force('link', d3.forceLink(graphData.links)
+                    .id(d => d.id)
+                    .distance(d => 100 - (d.weight * 8)) // Closer for higher weight
+                    .strength(d => d.weight / 10))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(d => d.size + 5));
+
+            // Create links (no directional arrows)
+            const links = g.append('g')
+                .attr('class', 'links')
+                .selectAll('line')
+                .data(graphData.links)
+                .enter().append('line')
+                .attr('stroke', d => getLinkColor(d.weight))
+                .attr('stroke-opacity', d => 0.8)
+                .attr('stroke-width', d => Math.max(2, d.weight / 2))
+                .style('cursor', 'pointer')
+                .on('mouseover', linkMouseOver)
+                .on('mouseout', linkMouseOut);
+
+            // Create nodes
+            const nodes = g.append('g')
+                .attr('class', 'nodes')
+                .selectAll('circle')
+                .data(graphData.nodes)
+                .enter().append('circle')
+                .attr('r', d => d.size)
+                .attr('fill', d => d.color)
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 2)
+                .style('cursor', 'pointer')
+                .call(d3.drag()
+                    .on('start', dragStarted)
+                    .on('drag', dragged)
+                    .on('end', dragEnded))
+                .on('click', nodeClicked)
+                .on('mouseover', nodeMouseOver)
+                .on('mouseout', nodeMouseOut);
+
+            // Create labels
+            const labels = g.append('g')
+                .attr('class', 'labels')
+                .selectAll('text')
+                .data(graphData.nodes)
+                .enter().append('text')
+                .text(d => d.title)
+                .attr('font-size', '12px')
+                .attr('font-family', 'Arial, sans-serif')
+                .attr('text-anchor', 'middle')
+                .attr('dy', -5)
+                .style('pointer-events', 'none')
+                .style('display', showLabels ? 'block' : 'none');
+
+            // Update positions on each tick
+            simulation.on('tick', () => {
+                links
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                nodes
+                    .attr('cx', d => d.x)
+                    .attr('cy', d => d.y);
+
+                labels
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y);
+            });
+
+            // Add tooltips to nodes
+            nodes.append('title')
+                .text(d => `${d.title}\nConnections: ${d.linkCount}`);
+
+            // Add tooltips to links
+            links.append('title')
+                .text(d => `${d.type}\nWeight: ${d.weight}/10\n${d.source.title} → ${d.target.title}`);
+        }
+
+        function nodeClicked(event, d) {
+            event.stopPropagation();
+
+            // Toggle selection
+            if (selectedNodes.includes(d.id)) {
+                selectedNodes = selectedNodes.filter(id => id !== d.id);
+            } else {
+                selectedNodes.push(d.id);
+                if (selectedNodes.length > 2) {
+                    selectedNodes.shift(); // Keep only last 2 selections
+                }
+            }
+
+            updateNodeSelection();
+            loadNodeDetails(d.id);
+            updateSelectedCount();
+        }
+
+        function updateNodeSelection() {
+            svg.selectAll('circle')
+                .attr('stroke', d => selectedNodes.includes(d.id) ? '#dc3545' : '#fff')
+                .attr('stroke-width', d => selectedNodes.includes(d.id) ? 4 : 2);
+        }
+
+        function loadNodeDetails(nodeId) {
+            fetch(`/graph/node/${nodeId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const detailsContainer = document.getElementById('nodeDetails');
+                    detailsContainer.innerHTML = `
+                        <h6>${data.title}</h6>
+                        <p class="small text-muted">${data.content || 'No content'}</p>
+                        <div class="mb-2">
+                        </div>
+                        <div class="mb-2">
+                            ${data.tags.map(tag => `<span class="badge bg-primary">${tag}</span>`).join(' ')}
+                        </div>
+                        <hr>
+                        <div class="small">
+                            <div><strong>Total Links:</strong> ${data.totalLinks}</div>
+                            <div><strong>Avg Weight:</strong> ${data.averageWeight?.toFixed(1) || 'N/A'}</div>
+                        </div>
+                        <hr>
+                        <div class="small">
+                            <div><strong>Outgoing (${data.outgoingLinks.length}):</strong></div>
+                            ${data.outgoingLinks.map(link =>
+                                `<div class="ms-2">→ ${link.target} (${link.type})</div>`
+                            ).join('')}
+                            <div class="mt-2"><strong>Incoming (${data.incomingLinks.length}):</strong></div>
+                            ${data.incomingLinks.map(link =>
+                                `<div class="ms-2">← ${link.source} (${link.type})</div>`
+                            ).join('')}
+                        </div>
+                        <hr>
+                        <div class="d-grid gap-1">
+                            <a href="/notes/${data.id}" class="btn btn-sm btn-primary">View Note</a>
+                            <a href="/notes/${data.id}/edit" class="btn btn-sm btn-outline-secondary">Edit Note</a>
+                        </div>
+                    `;
+                })
+                .catch(error => console.error('Error loading node details:', error));
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedNode').textContent = selectedNodes.length;
+        }
+
+        function nodeMouseOver(event, d) {
+            // Highlight connected nodes
+            const connectedNodeIds = new Set();
+            graphData.links.forEach(link => {
+                if (link.source.id === d.id) connectedNodeIds.add(link.target.id);
+                if (link.target.id === d.id) connectedNodeIds.add(link.source.id);
+            });
+
+            svg.selectAll('circle')
+                .style('opacity', node =>
+                    node.id === d.id || connectedNodeIds.has(node.id) ? 1 : 0.3);
+
+            svg.selectAll('line')
+                .style('opacity', link =>
+                    link.source.id === d.id || link.target.id === d.id ? 1 : 0.1);
+
+            document.getElementById('connectedNodes').textContent = connectedNodeIds.size;
+        }
+
+        function nodeMouseOut(event, d) {
+            svg.selectAll('circle').style('opacity', 1);
+            svg.selectAll('line').style('opacity', 0.8);
+            document.getElementById('connectedNodes').textContent = '0';
+        }
+
+        function linkMouseOver(event, d) {
+            // Highlight the link
+            d3.select(event.target)
+                .attr('stroke-width', Math.max(4, d.weight / 1.5))
+                .style('opacity', 1);
+
+            // Show tooltip with link details
+            const tooltip = d3.select('body').append('div')
+                .attr('class', 'link-tooltip')
+                .style('position', 'absolute')
+                .style('background', 'rgba(0,0,0,0.8)')
+                .style('color', 'white')
+                .style('padding', '8px 12px')
+                .style('border-radius', '4px')
+                .style('font-size', '12px')
+                .style('pointer-events', 'none')
+                .style('z-index', '1000')
+                .html(`
+                    <strong>${d.type}</strong><br>
+                    Weight: ${d.weight}/10<br>
+                    ${d.source.title} → ${d.target.title}
+                `)
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 10) + 'px');
+        }
+
+        function linkMouseOut(event, d) {
+            // Reset link appearance
+            d3.select(event.target)
+                .attr('stroke-width', Math.max(2, d.weight / 2))
+                .style('opacity', 0.8);
+
+            // Remove tooltip
+            d3.selectAll('.link-tooltip').remove();
+        }
+
+        function dragStarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragEnded(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function resetGraph() {
+            selectedNodes = [];
+            updateNodeSelection();
+            updateSelectedCount();
+            simulation.alpha(1).restart();
+        }
+
+        function highlightHubs() {
+            const maxConnections = Math.max(...graphData.nodes.map(n => n.linkCount));
+            svg.selectAll('circle')
+                .transition()
+                .duration(500)
+                .attr('stroke', d => d.linkCount >= maxConnections * 0.7 ? '#ffc107' : '#fff')
+                .attr('stroke-width', d => d.linkCount >= maxConnections * 0.7 ? 6 : 2);
+        }
+
+        function toggleLabels() {
+            showLabels = !showLabels;
+            svg.selectAll('.labels text')
+                .style('display', showLabels ? 'block' : 'none');
+        }
+
+
+        function filterByLinkType() {
+            const linkType = document.getElementById('linkTypeFilter').value;
+            svg.selectAll('line')
+                .style('opacity', d => !linkType || d.type === linkType ? d.opacity : 0.1);
+        }
+
+        function filterByWeight(value) {
+            document.getElementById('weightValue').textContent = value;
+            svg.selectAll('line')
+                .style('opacity', d => d.weight >= value ? d.opacity : 0.1);
+        }
+
+        function findShortestPath() {
+            if (selectedNodes.length !== 2) {
+                alert('Please select exactly 2 nodes to find the shortest path');
+                return;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('pathModal'));
+            modal.show();
+
+            // Implementation would go here for shortest path visualization
+        }
+
+        function centerGraph() {
+            const transform = d3.zoomIdentity.translate(
+                document.getElementById('graph-container').clientWidth / 2,
+                document.getElementById('graph-container').clientHeight / 2
+            ).scale(1);
+
+            svg.transition().duration(750).call(
+                d3.zoom().transform, transform
+            );
+        }
+
+        function showStats() {
+            fetch('/graph/stats')
+                .then(response => response.json())
+                .then(stats => {
+                    alert(`Graph Statistics:\n\nNodes: ${stats.totalNodes}\nLinks: ${stats.totalLinks}\nOrphaned: ${stats.orphanedNodes}\n\nMost Connected:\n${stats.hubs.map(hub => `• ${hub.title} (${hub.linkCount} links)`).join('\n')}`);
+                });
+        }
+
+        function exportGraph() {
+            const svgData = new XMLSerializer().serializeToString(document.getElementById('graph-svg'));
+            const blob = new Blob([svgData], {type: 'image/svg+xml'});
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'knowledge-graph.svg';
+            a.click();
+
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(message) {
+            const container = document.getElementById('graph-container');
+            container.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                        <h5>Error Loading Graph</h5>
+                        <p>${message}</p>
+                        <button class="btn btn-primary" onclick="loadGraphData()">
+                            <i class="fas fa-refresh me-1"></i>Retry
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const container = document.getElementById('graph-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            svg.attr('width', width).attr('height', height);
+
+            if (simulation) {
+                simulation.force('center', d3.forceCenter(width / 2, height / 2));
+                simulation.alpha(0.3).restart();
+            }
+        });
+    </script>
+</body>
+</html>

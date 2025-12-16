@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="005-create-indexes" author="system">
+        <comment>Create indexes for performance optimization</comment>
+
+        <!-- Notes table indexes -->
+        <createIndex tableName="notes" indexName="idx_notes_title">
+            <column name="title"/>
+        </createIndex>
+
+        <createIndex tableName="notes" indexName="idx_notes_source">
+            <column name="source"/>
+        </createIndex>
+
+        <createIndex tableName="notes" indexName="idx_notes_created_at">
+            <column name="created_at"/>
+        </createIndex>
+
+        <!-- Full-text search index for content -->
+        <sql>
+            CREATE INDEX idx_notes_content_fulltext ON notes USING gin(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(content, '')));
+        </sql>
+
+        <!-- Tags table indexes -->
+        <createIndex tableName="tags" indexName="idx_tags_name">
+            <column name="name"/>
+        </createIndex>
+
+        <createIndex tableName="tags" indexName="idx_tags_color">
+            <column name="color"/>
+        </createIndex>
+
+        <!-- Note_tags table indexes -->
+        <createIndex tableName="note_tags" indexName="idx_note_tags_note_id">
+            <column name="note_id"/>
+        </createIndex>
+
+        <createIndex tableName="note_tags" indexName="idx_note_tags_tag_id">
+            <column name="tag_id"/>
+        </createIndex>
+
+        <!-- Note_links table indexes for graph queries -->
+        <createIndex tableName="note_links" indexName="idx_note_links_source_note_id">
+            <column name="source_note_id"/>
+        </createIndex>
+
+        <createIndex tableName="note_links" indexName="idx_note_links_target_note_id">
+            <column name="target_note_id"/>
+        </createIndex>
+
+        <createIndex tableName="note_links" indexName="idx_note_links_link_type">
+            <column name="link_type"/>
+        </createIndex>
+
+        <createIndex tableName="note_links" indexName="idx_note_links_weight">
+            <column name="weight"/>
+        </createIndex>
+
+        <createIndex tableName="note_links" indexName="idx_note_links_bidirectional">
+            <column name="is_bidirectional"/>
+        </createIndex>
+
+        <!-- Composite indexes for common query patterns -->
+        <createIndex tableName="note_links" indexName="idx_note_links_source_type">
+            <column name="source_note_id"/>
+            <column name="link_type"/>
+        </createIndex>
+
+        <createIndex tableName="note_links" indexName="idx_note_links_target_type">
+            <column name="target_note_id"/>
+            <column name="link_type"/>
+        </createIndex>
+
+        <!-- JSONB metadata index -->
+        <sql>
+            CREATE INDEX idx_note_links_metadata_gin ON note_links USING gin(metadata);
+        </sql>
+
+        <rollback>
+            <dropIndex tableName="notes" indexName="idx_notes_title"/>
+            <dropIndex tableName="notes" indexName="idx_notes_source"/>
+            <dropIndex tableName="notes" indexName="idx_notes_created_at"/>
+            <sql>DROP INDEX IF EXISTS idx_notes_content_fulltext;</sql>
+
+            <dropIndex tableName="tags" indexName="idx_tags_name"/>
+            <dropIndex tableName="tags" indexName="idx_tags_color"/>
+
+            <dropIndex tableName="note_tags" indexName="idx_note_tags_note_id"/>
+            <dropIndex tableName="note_tags" indexName="idx_note_tags_tag_id"/>
+
+            <dropIndex tableName="note_links" indexName="idx_note_links_source_note_id"/>
+            <dropIndex tableName="note_links" indexName="idx_note_links_target_note_id"/>
+            <dropIndex tableName="note_links" indexName="idx_note_links_link_type"/>
+            <dropIndex tableName="note_links" indexName="idx_note_links_weight"/>
+            <dropIndex tableName="note_links" indexName="idx_note_links_bidirectional"/>
+            <dropIndex tableName="note_links" indexName="idx_note_links_source_type"/>
+            <dropIndex tableName="note_links" indexName="idx_note_links_target_type"/>
+            <sql>DROP INDEX IF EXISTS idx_note_links_metadata_gin;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

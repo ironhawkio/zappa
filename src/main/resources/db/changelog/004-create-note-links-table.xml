@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="004-create-note-links-table" author="system">
+        <comment>Create note_links table for note graph relationships</comment>
+
+        <createTable tableName="note_links">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="source_note_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_note_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="link_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="weight" type="INTEGER" defaultValue="1"/>
+            <column name="metadata" type="JSONB"/>
+            <column name="is_bidirectional" type="BOOLEAN" defaultValue="false"/>
+            <column name="created_by" type="VARCHAR(100)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+            tableName="note_links"
+            columnNames="source_note_id,target_note_id,link_type"
+            constraintName="uk_note_links_source_target_type"/>
+
+        <addForeignKeyConstraint
+            baseTableName="note_links"
+            baseColumnNames="source_note_id"
+            constraintName="fk_note_links_source_note_id"
+            referencedTableName="notes"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint
+            baseTableName="note_links"
+            baseColumnNames="target_note_id"
+            constraintName="fk_note_links_target_note_id"
+            referencedTableName="notes"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <rollback>
+            <dropTable tableName="note_links"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

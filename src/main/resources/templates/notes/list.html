@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Notes - Zappa</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div th:replace="~{fragments/layout :: alerts}"></div>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>
+                        <i class="fas fa-file-alt me-2"></i>Notes
+                        <span class="badge bg-secondary" th:text="${notes.totalElements}">0</span>
+                    </h2>
+                    <a th:href="@{/notes/new}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>New Note
+                    </a>
+                </div>
+
+                <!-- Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <select class="form-select" onchange="filterByGroup(this.value)">
+                            <option value="">All Groups</option>
+                            <option th:each="group : ${allGroups}"
+                                    th:value="${group.id}"
+                                    th:text="${group.name}"
+                                    th:style="'color: ' + ${group.displayColor}"
+                                    th:selected="${selectedGroup != null and selectedGroup.id == group.id}">Group</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-outline-info w-100" onclick="toggleTagFilter()">
+                            <i class="fas fa-tags me-2"></i>Filter by Tags
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Group Filter Display -->
+                <div th:if="${selectedGroup != null}" class="alert alert-success alert-dismissible fade show mb-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i th:class="${selectedGroup.displayIcon} + ' me-2'"></i>
+                            <strong>Viewing group:</strong>
+                            <span th:text="${selectedGroup.name}" style="color: var(--bs-success);">Group</span>
+                            <span th:if="${selectedGroup.description != null and !selectedGroup.description.isEmpty()}"
+                                  class="text-muted ms-2"
+                                  th:text="'(' + ${selectedGroup.description} + ')'">Description</span>
+                            <div class="mt-1" th:if="${includeSubGroups}">
+                                <small class="badge bg-info">Including subgroups</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" onclick="clearGroupFilter()"></button>
+                    </div>
+                </div>
+
+                <!-- Tag Filter Panel (Hidden by default) -->
+                <div id="tagFilterPanel" class="card mb-4" style="display: none;">
+                    <div class="card-header bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-filter me-2"></i>Tag Filters
+                            </h6>
+                            <button type="button" class="btn-close" onclick="hideTagFilter()"></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Selected Tags Display -->
+                        <div class="mb-3">
+                            <label class="form-label">Selected Tags:</label>
+                            <div id="selectedTagsContainer" class="border rounded p-2 min-height-40">
+                                <span class="text-muted" id="noTagsSelected">Click tags below to add them</span>
+                            </div>
+                        </div>
+
+                        <!-- Tag Selection Area -->
+                        <div class="mb-3">
+                            <label class="form-label">Available Tags:</label>
+                            <div class="d-flex flex-wrap gap-2" id="availableTagsContainer">
+                                <span th:each="tag : ${allTags}"
+                                      class="badge bg-light text-dark tag-selectable"
+                                      style="cursor: pointer; font-size: 0.9em; padding: 8px 12px;"
+                                      th:text="${tag.name}"
+                                      th:data-tag="${tag.name}"
+                                      onclick="toggleTagSelection(this)">Tag</span>
+                            </div>
+                        </div>
+
+                        <!-- Filter Mode Selection -->
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <label class="form-label">Filter Mode:</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="filterMode" id="filterOr" value="OR" checked>
+                                    <label class="btn btn-outline-primary" for="filterOr">Any (OR)</label>
+
+                                    <input type="radio" class="btn-check" name="filterMode" id="filterAnd" value="AND">
+                                    <label class="btn btn-outline-primary" for="filterAnd">All (AND)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-primary w-100" onclick="applyTagFilter()">
+                                    <i class="fas fa-filter me-2"></i>Apply Filter
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100" onclick="clearTagFilter()">
+                                    <i class="fas fa-times me-2"></i>Clear All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Filters Display -->
+                <div th:if="${selectedTags != null and !selectedTags.isEmpty()}" class="alert alert-info alert-dismissible fade show mb-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fas fa-filter me-2"></i>
+                            <strong>Active filter:</strong>
+                            <span th:text="'Show notes with ' + ${#strings.toLowerCase(tagOperator)} + ' of these tags:'">Filter</span>
+                            <div class="mt-1">
+                                <span th:each="tag, iterStat : ${#strings.arraySplit(selectedTags, ',')}"
+                                      class="badge bg-primary me-1"
+                                      th:text="${#strings.trim(tag)}">tag</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" onclick="clearTagFilter()"></button>
+                    </div>
+                </div>
+
+                <!-- Legacy single tag filter for backward compatibility -->
+                <div th:if="${selectedTag != null and !selectedTag.isEmpty()}" class="alert alert-info alert-dismissible fade show mb-4">
+                    <i class="fas fa-tag me-2"></i>
+                    Filtered by tag: <strong th:text="${selectedTag}">tag</strong>
+                    <button type="button" class="btn-close" aria-label="Close" onclick="clearSingleTagFilter()"></button>
+                </div>
+
+                <!-- Notes list -->
+                <div class="row">
+                    <div th:each="note : ${notes.content}" class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0" th:text="${note.title}">Note Title</h6>
+                                <span th:if="${note.group != null}"
+                                      class="badge"
+                                      th:style="'background-color: ' + ${note.group.displayColor}"
+                                      th:title="${note.group.description}">
+                                    <i th:class="${note.group.displayIcon} + ' me-1'"></i>
+                                    <span th:text="${note.group.name}">Group</span>
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text text-truncate"
+                                   th:text="${#strings.abbreviate(note.content, 100)}">Content preview...</p>
+
+                                <div class="mb-3">
+                                    <span th:each="noteTag : ${note.noteTags}"
+                                          class="badge bg-light text-dark me-1"
+                                          th:text="${noteTag.tag.name}">tag</span>
+                                </div>
+
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    <span th:text="${#temporals.format(note.createdAt, 'MMM dd, yyyy HH:mm')}">Date</span>
+                                </small>
+                            </div>
+                            <div class="card-footer">
+                                <div class="btn-group w-100" role="group">
+                                    <a th:href="@{/notes/{id}(id=${note.id})}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a th:href="@{/notes/{id}/edit(id=${note.id})}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                            onclick="confirmDelete(this)"
+                                            th:data-id="${note.id}">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div th:if="${notes.content.empty}" class="text-center py-5">
+                    <i class="fas fa-sticky-note fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No notes found</h4>
+                    <p class="text-muted">Start by creating your first note!</p>
+                    <a th:href="@{/notes/new}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Create Note
+                    </a>
+                </div>
+
+                <!-- Pagination -->
+                <nav th:if="${notes.totalPages > 1}" aria-label="Notes pagination">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" th:classappend="${notes.first} ? 'disabled'">
+                            <a class="page-link" th:href="@{/notes(page=${currentPage - 1})}">Previous</a>
+                        </li>
+
+                        <li th:each="i : ${#numbers.sequence(0, notes.totalPages - 1)}"
+                            class="page-item"
+                            th:classappend="${i == currentPage} ? 'active'">
+                            <a class="page-link" th:href="@{/notes(page=${i})}" th:text="${i + 1}">1</a>
+                        </li>
+
+                        <li class="page-item" th:classappend="${notes.last} ? 'disabled'">
+                            <a class="page-link" th:href="@{/notes(page=${currentPage + 1})}">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <!-- Delete confirmation modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this note? This action cannot be undone.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="deleteForm" method="post" style="display: inline;">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <style>
+        .min-height-40 {
+            min-height: 40px;
+        }
+
+        .tag-selectable {
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+        }
+
+        .tag-selectable:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tag-selectable:active {
+            transform: translateY(0);
+        }
+
+        #tagFilterPanel {
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-header {
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .badge.removable {
+            position: relative;
+            padding-right: 25px !important;
+        }
+
+        .badge.removable i {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    </style>
+
+    <script>
+        let selectedTags = [];
+
+
+        function filterByTag(tag) {
+            if (tag) {
+                window.location.href = '/notes?tag=' + tag;
+            } else {
+                window.location.href = '/notes';
+            }
+        }
+
+        function filterByGroup(groupId) {
+            if (groupId) {
+                window.location.href = '/notes?group=' + groupId;
+            } else {
+                window.location.href = '/notes';
+            }
+        }
+
+        function clearGroupFilter() {
+            window.location.href = '/notes';
+        }
+
+        function toggleTagFilter() {
+            const panel = document.getElementById('tagFilterPanel');
+            const isVisible = panel.style.display !== 'none';
+
+            if (isVisible) {
+                hideTagFilter();
+            } else {
+                showTagFilter();
+            }
+        }
+
+        function showTagFilter() {
+            document.getElementById('tagFilterPanel').style.display = 'block';
+            initializeSelectedTags();
+        }
+
+        function hideTagFilter() {
+            document.getElementById('tagFilterPanel').style.display = 'none';
+        }
+
+        function initializeSelectedTags() {
+            // Initialize with any existing tags from server
+            const serverTags = /*[[${selectedTags}]]*/ '';
+            if (serverTags) {
+                selectedTags = serverTags.split(',').map(t => t.trim()).filter(t => t);
+                updateSelectedTagsDisplay();
+
+                // Update visual state of available tags
+                document.querySelectorAll('.tag-selectable').forEach(tag => {
+                    const tagName = tag.getAttribute('data-tag');
+                    if (selectedTags.includes(tagName)) {
+                        tag.classList.remove('bg-light', 'text-dark');
+                        tag.classList.add('bg-primary', 'text-white');
+                    }
+                });
+
+                // Set the operator radio button
+                const operator = /*[[${tagOperator}]]*/ 'OR';
+                if (operator === 'AND') {
+                    document.getElementById('filterAnd').checked = true;
+                } else {
+                    document.getElementById('filterOr').checked = true;
+                }
+            }
+        }
+
+        function toggleTagSelection(element) {
+            const tagName = element.getAttribute('data-tag');
+
+            if (selectedTags.includes(tagName)) {
+                // Remove tag
+                selectedTags = selectedTags.filter(t => t !== tagName);
+                element.classList.remove('bg-primary', 'text-white');
+                element.classList.add('bg-light', 'text-dark');
+            } else {
+                // Add tag
+                selectedTags.push(tagName);
+                element.classList.remove('bg-light', 'text-dark');
+                element.classList.add('bg-primary', 'text-white');
+            }
+
+            updateSelectedTagsDisplay();
+        }
+
+        function updateSelectedTagsDisplay() {
+            const container = document.getElementById('selectedTagsContainer');
+            const noTagsSpan = document.getElementById('noTagsSelected');
+
+            if (selectedTags.length === 0) {
+                noTagsSpan.style.display = 'inline';
+                // Remove any existing tag badges
+                container.querySelectorAll('.badge').forEach(badge => badge.remove());
+            } else {
+                noTagsSpan.style.display = 'none';
+
+                // Clear existing badges
+                container.querySelectorAll('.badge').forEach(badge => badge.remove());
+
+                // Add new badges
+                selectedTags.forEach(tag => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-success me-1 mb-1';
+                    badge.style.fontSize = '0.9em';
+                    badge.innerHTML = tag + ' <i class="fas fa-times ms-1" style="cursor: pointer;" onclick="removeSelectedTag(\'' + tag + '\')"></i>';
+                    container.appendChild(badge);
+                });
+            }
+        }
+
+        function removeSelectedTag(tagName) {
+            selectedTags = selectedTags.filter(t => t !== tagName);
+
+            // Update visual state of the tag in available tags
+            const tagElement = document.querySelector(`.tag-selectable[data-tag="${tagName}"]`);
+            if (tagElement) {
+                tagElement.classList.remove('bg-primary', 'text-white');
+                tagElement.classList.add('bg-light', 'text-dark');
+            }
+
+            updateSelectedTagsDisplay();
+        }
+
+        function applyTagFilter() {
+            if (selectedTags.length === 0) {
+                alert('Please select at least one tag to filter by.');
+                return;
+            }
+
+            const operator = document.querySelector('input[name="filterMode"]:checked').value;
+            const url = new URL(window.location.origin + '/notes');
+            url.searchParams.append('tags', selectedTags.join(','));
+            url.searchParams.append('tagOperator', operator);
+            window.location.href = url.toString();
+        }
+
+        function clearTagFilter() {
+            selectedTags = [];
+
+            // Reset all tag visual states
+            document.querySelectorAll('.tag-selectable').forEach(tag => {
+                tag.classList.remove('bg-primary', 'text-white');
+                tag.classList.add('bg-light', 'text-dark');
+            });
+
+            updateSelectedTagsDisplay();
+
+            // Reset radio buttons
+            document.getElementById('filterOr').checked = true;
+
+            // Redirect to clear filters
+            window.location.href = '/notes';
+        }
+
+        function clearSingleTagFilter() {
+            window.location.href = '/notes';
+        }
+
+        function confirmDelete(button) {
+            const noteId = button.getAttribute('data-id');
+            const form = document.getElementById('deleteForm');
+            form.action = '/notes/' + noteId + '/delete';
+
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            modal.show();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-show tag filter if tags are already selected
+            const serverTags = /*[[${selectedTags}]]*/ '';
+            if (serverTags && serverTags.trim()) {
+                showTagFilter();
+            }
+        });
+    </script>
+</body>
+</html>

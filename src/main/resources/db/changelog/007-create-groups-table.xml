@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="007-create-groups-table" author="system">
+        <createTable tableName="groups">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="color" type="VARCHAR(7)"/>
+            <column name="icon" type="VARCHAR(50)"/>
+            <column name="parent_group_id" type="UUID">
+                <constraints foreignKeyName="fk_groups_parent_group" references="groups(id)"/>
+            </column>
+            <column name="sort_order" type="INTEGER" defaultValue="0"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Add group_id column to notes table -->
+        <addColumn tableName="notes">
+            <column name="group_id" type="UUID">
+                <constraints foreignKeyName="fk_notes_group" references="groups(id)"/>
+            </column>
+        </addColumn>
+
+        <!-- Create default groups -->
+        <insert tableName="groups">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="name" value="General"/>
+            <column name="description" value="General notes and miscellaneous content"/>
+            <column name="color" value="#6c757d"/>
+            <column name="icon" value="fas fa-sticky-note"/>
+            <column name="sort_order" value="0"/>
+        </insert>
+
+        <insert tableName="groups">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="name" value="Programming"/>
+            <column name="description" value="Software development, coding, and technical notes"/>
+            <column name="color" value="#007bff"/>
+            <column name="icon" value="fas fa-code"/>
+            <column name="sort_order" value="1"/>
+        </insert>
+
+        <insert tableName="groups">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="name" value="Photography"/>
+            <column name="description" value="Photography techniques, equipment, and creative projects"/>
+            <column name="color" value="#fd7e14"/>
+            <column name="icon" value="fas fa-camera"/>
+            <column name="sort_order" value="2"/>
+        </insert>
+
+        <insert tableName="groups">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="name" value="Planting"/>
+            <column name="description" value="Gardening, plant care, and agricultural notes"/>
+            <column name="color" value="#28a745"/>
+            <column name="icon" value="fas fa-seedling"/>
+            <column name="sort_order" value="3"/>
+        </insert>
+
+        <rollback>
+            <dropColumn tableName="notes" columnName="group_id"/>
+            <dropTable tableName="groups"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
