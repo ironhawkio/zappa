@@ -1,43 +1,38 @@
-version: '3.8'
+# Development environment docker-compose
+# Used by GitHub Actions dev workflow
 
 services:
   postgresql:
     image: postgres:15-alpine
-    container_name: zappa-postgres
+    container_name: zappa-postgres-dev
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 30s
       timeout: 10s
       retries: 5
     networks:
-      - zappa-network
+      - zappa-dev-network
 
   zappa-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: zappa-app
+    image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: zappa-app-dev
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
-      SPRING_LIQUIBASE_ENABLED: ${SPRING_LIQUIBASE_ENABLED}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_LIQUIBASE_ENABLED: true
     ports:
-      - "${SERVER_PORT}:6886"
+      - "6886:6886"
     depends_on:
       postgresql:
         condition: service_healthy
@@ -48,12 +43,12 @@ services:
       retries: 3
       start_period: 60s
     networks:
-      - zappa-network
+      - zappa-dev-network
 
 networks:
-  zappa-network:
+  zappa-dev-network:
     driver: bridge
 
 volumes:
-  postgres_data:
+  postgres_dev_data:
     driver: local

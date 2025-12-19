@@ -1,0 +1,59 @@
+# Production environment docker-compose
+# Uses pre-built image from GitHub Container Registry
+
+services:
+  zappa-app:
+    image: ${REGISTRY}/${IMAGE_NAME}:latest
+    container_name: zappa-app-prod
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_LIQUIBASE_ENABLED: true
+    ports:
+      - "${SERVER_PORT}:6886"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6886/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - zappa-prod-network
+
+  # Optional: PostgreSQL for production (remove if using external database)
+  postgresql:
+    image: postgres:15-alpine
+    container_name: zappa-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - zappa-prod-network
+    # Production database tuning
+    command: |
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+
+networks:
+  zappa-prod-network:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:
+    driver: local

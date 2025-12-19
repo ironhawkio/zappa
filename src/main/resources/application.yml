@@ -1,3 +1,6 @@
+server:
+  port: ${SERVER_PORT:6886}
+
 spring:
   application:
     name: zappa
