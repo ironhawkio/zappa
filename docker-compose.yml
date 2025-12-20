@@ -38,6 +38,8 @@ services:
       SPRING_LIQUIBASE_ENABLED: ${SPRING_LIQUIBASE_ENABLED}
     ports:
       - "${SERVER_PORT}:6886"
+    volumes:
+      - ./uploads:/app/zappa/uploads
     depends_on:
       postgresql:
         condition: service_healthy
@@ -56,4 +58,6 @@ networks:
 
 volumes:
   postgres_data:
+    driver: local
+  zappa_uploads:
     driver: local

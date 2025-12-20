@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="create-note-attachments-table" author="zappa">
+        <createTable tableName="note_attachments">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="note_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="original_filename" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="filename" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_path" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_size" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mime_type" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uploaded_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addDefaultValue tableName="note_attachments"
+                         columnName="id"
+                         defaultValueComputed="gen_random_uuid()"/>
+
+        <addDefaultValue tableName="note_attachments"
+                         columnName="uploaded_at"
+                         defaultValueComputed="NOW()"/>
+
+        <addForeignKeyConstraint constraintName="fk_note_attachments_note_id"
+                               baseTableName="note_attachments"
+                               baseColumnNames="note_id"
+                               referencedTableName="notes"
+                               referencedColumnNames="id"
+                               onDelete="CASCADE"/>
+
+        <createIndex tableName="note_attachments" indexName="idx_note_attachments_note_id">
+            <column name="note_id"/>
+        </createIndex>
+
+        <createIndex tableName="note_attachments" indexName="idx_note_attachments_uploaded_at">
+            <column name="uploaded_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

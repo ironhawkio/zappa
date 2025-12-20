@@ -32,8 +32,8 @@ WORKDIR /app
 # Copy built JAR from builder stage
 COPY --from=builder /app/build/libs/*.jar app.jar
 
-# Change ownership to appuser
-RUN chown appuser:appuser app.jar
+# Create upload directory and change ownership to appuser
+RUN mkdir -p /app/zappa/uploads && chown -R appuser:appuser /app/zappa && chown appuser:appuser app.jar
 
 # Switch to non-root user
 USER appuser

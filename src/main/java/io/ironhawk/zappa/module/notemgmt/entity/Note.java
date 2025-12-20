@@ -55,6 +55,11 @@ public class Note {
     @Builder.Default
     private Set<NoteLink> incomingLinks = new HashSet<>();
 
+    // File attachments
+    @OneToMany(mappedBy = "note", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<NoteAttachment> attachments = new HashSet<>();
+
     public static Note of(String title, String content) {
         return Note.builder()
             .title(title)
@@ -103,5 +108,32 @@ public class Note {
 
     public boolean isOrphaned() {
         return outgoingLinks.isEmpty() && incomingLinks.isEmpty();
+    }
+
+    // Attachment utility methods
+    public boolean hasAttachments() {
+        return !attachments.isEmpty();
+    }
+
+    public int getAttachmentCount() {
+        return attachments.size();
+    }
+
+    public boolean hasWordDocuments() {
+        return attachments.stream().anyMatch(NoteAttachment::isWordDocument);
+    }
+
+    public boolean hasPdfDocuments() {
+        return attachments.stream().anyMatch(NoteAttachment::isPdf);
+    }
+
+    public boolean hasImages() {
+        return attachments.stream().anyMatch(NoteAttachment::isImage);
+    }
+
+    public long getTotalAttachmentSize() {
+        return attachments.stream()
+            .mapToLong(attachment -> attachment.getFileSize() != null ? attachment.getFileSize() : 0L)
+            .sum();
     }
 }

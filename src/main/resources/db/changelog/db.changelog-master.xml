@@ -17,5 +17,6 @@
     <!-- Schema changes -->
     <include file="db/changelog/006-remove-source-column.xml"/>
     <include file="db/changelog/007-create-groups-table.xml"/>
+    <include file="db/changelog/008-create-note-attachments-table.xml"/>
 
 </databaseChangeLog>

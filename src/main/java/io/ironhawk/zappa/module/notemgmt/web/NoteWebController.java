@@ -12,6 +12,7 @@ import io.ironhawk.zappa.module.notemgmt.service.MarkdownService;
 import io.ironhawk.zappa.module.notemgmt.service.NoteLinkService;
 import io.ironhawk.zappa.module.notemgmt.service.NoteService;
 import io.ironhawk.zappa.module.notemgmt.service.TagService;
+import io.ironhawk.zappa.module.notemgmt.service.FileStorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
@@ -38,6 +40,7 @@ public class NoteWebController {
     private final MarkdownService markdownService;
     private final NoteLinkService noteLinkService;
     private final GroupService groupService;
+    private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
 
     @GetMapping
@@ -121,6 +124,7 @@ public class NoteWebController {
         @RequestParam(required = false) String tagNames,
         @RequestParam(required = false) String groupId,
         @RequestParam(required = false) String noteLinks,
+        @RequestParam(value = "uploadFiles", required = false) MultipartFile[] attachments,
         RedirectAttributes redirectAttributes) {
 
         try {
@@ -173,8 +177,31 @@ public class NoteWebController {
                 }
             }
 
-            redirectAttributes.addFlashAttribute("success", "Note created successfully!");
-            return "redirect:/notes";
+            // Handle file uploads if provided
+            if (attachments != null && attachments.length > 0) {
+                int uploadedCount = 0;
+                for (MultipartFile file : attachments) {
+                    if (!file.isEmpty()) {
+                        try {
+                            fileStorageService.storeFile(file, createdNote);
+                            uploadedCount++;
+                        } catch (Exception e) {
+                            log.error("Failed to upload file: {}", file.getOriginalFilename(), e);
+                            // Continue with other files, don't fail the entire operation
+                        }
+                    }
+                }
+                if (uploadedCount > 0) {
+                    redirectAttributes.addFlashAttribute("success",
+                        String.format("Note created successfully with %d file attachment(s)!", uploadedCount));
+                } else {
+                    redirectAttributes.addFlashAttribute("success", "Note created successfully!");
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("success", "Note created successfully!");
+            }
+
+            return "redirect:/notes/" + createdNote.getId();
         } catch (Exception e) {
             log.error("Error creating note", e);
             redirectAttributes.addFlashAttribute("error", "Error creating note: " + e.getMessage());
@@ -237,6 +264,7 @@ public class NoteWebController {
         @ModelAttribute Note note,
         @RequestParam(required = false) String tagNames,
         @RequestParam(required = false) String groupId,
+        @RequestParam(value = "uploadFiles", required = false) MultipartFile[] attachments,
         RedirectAttributes redirectAttributes) {
 
         try {
@@ -271,7 +299,33 @@ public class NoteWebController {
                 }
             }
 
-            redirectAttributes.addFlashAttribute("success", "Note updated successfully!");
+            // Handle file uploads if provided
+            if (attachments != null && attachments.length > 0) {
+                int uploadedCount = 0;
+                Note existingNote = noteService.getNoteById(id).orElse(null);
+                if (existingNote != null) {
+                    for (MultipartFile file : attachments) {
+                        if (!file.isEmpty()) {
+                            try {
+                                fileStorageService.storeFile(file, existingNote);
+                                uploadedCount++;
+                            } catch (Exception e) {
+                                log.error("Failed to upload file: {}", file.getOriginalFilename(), e);
+                                // Continue with other files, don't fail the entire operation
+                            }
+                        }
+                    }
+                }
+                if (uploadedCount > 0) {
+                    redirectAttributes.addFlashAttribute("success",
+                        String.format("Note updated successfully with %d new file attachment(s)!", uploadedCount));
+                } else {
+                    redirectAttributes.addFlashAttribute("success", "Note updated successfully!");
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("success", "Note updated successfully!");
+            }
+
             return "redirect:/notes/" + id;
         } catch (Exception e) {
             log.error("Error updating note", e);

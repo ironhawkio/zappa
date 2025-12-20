@@ -94,6 +94,7 @@ jobs:
         SPRING_JPA_HIBERNATE_DDL_AUTO=validate
         SPRING_LIQUIBASE_ENABLED=true
         SERVER_PORT=6886
+        UPLOAD_DIR=/app/zappa/uploads
 
         # Docker image configuration
         REGISTRY=${{ env.REGISTRY }}
@@ -106,9 +107,17 @@ jobs:
         docker compose -f docker-compose.dev.yml down || true
         docker compose -f docker-compose.dev.yml pull
         docker compose -f docker-compose.dev.yml up -d
-        timeout 120 bash -c 'until curl -f http://localhost:6886/actuator/health; do sleep 5; done'
-        curl -f http://localhost:6886/actuator/health
-        curl -f http://localhost:6886/notes
+
+        echo "🔍 Waiting for application health check..."
+        if timeout 120 bash -c 'until curl -sf http://localhost:6886/actuator/health; do sleep 5; done'; then
+          echo "✅ Health check passed"
+          curl -f http://localhost:6886/actuator/health
+        else
+          echo "❌ Health check failed after 120 seconds"
+          echo "📋 Container logs:"
+          docker compose -f docker-compose.dev.yml logs --tail=20
+          exit 1
+        fi
 
     - name: Decrypt SSH access key
       env:

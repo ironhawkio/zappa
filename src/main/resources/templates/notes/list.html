@@ -164,6 +164,25 @@
                                           th:text="${noteTag.tag.name}">tag</span>
                                 </div>
 
+                                <!-- Attachment indicators -->
+                                <div th:if="${note.hasAttachments()}" class="mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-paperclip me-1"></i>
+                                            <span th:text="${note.attachmentCount}">1</span> file(s)
+                                        </span>
+                                        <span th:if="${note.hasWordDocuments()}" class="badge bg-primary" title="Word documents">
+                                            <i class="fas fa-file-word"></i>
+                                        </span>
+                                        <span th:if="${note.hasPdfDocuments()}" class="badge bg-danger" title="PDF documents">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </span>
+                                        <span th:if="${note.hasImages()}" class="badge bg-success" title="Images">
+                                            <i class="fas fa-file-image"></i>
+                                        </span>
+                                    </div>
+                                </div>
+
                                 <small class="text-muted">
                                     <i class="fas fa-calendar me-1"></i>
                                     <span th:text="${#temporals.format(note.createdAt, 'MMM dd, yyyy HH:mm')}">Date</span>

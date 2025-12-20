@@ -26,6 +26,7 @@ services:
     container_name: zappa-app-dev
     restart: unless-stopped
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
@@ -33,6 +34,8 @@ services:
       SPRING_LIQUIBASE_ENABLED: true
     ports:
       - "6886:6886"
+    volumes:
+      - zappa_dev_uploads:/app/zappa/uploads
     depends_on:
       postgresql:
         condition: service_healthy
@@ -51,4 +54,6 @@ networks:
 
 volumes:
   postgres_dev_data:
+    driver: local
+  zappa_dev_uploads:
     driver: local

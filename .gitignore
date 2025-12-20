@@ -44,3 +44,7 @@ out/
 
 # Keep example file in version control
 !.env.example
+
+### File Uploads ###
+uploads/
+uploads/**

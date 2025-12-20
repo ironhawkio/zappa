@@ -94,6 +94,7 @@ jobs:
         SPRING_JPA_HIBERNATE_DDL_AUTO=validate
         SPRING_LIQUIBASE_ENABLED=true
         SERVER_PORT=6886
+        UPLOAD_DIR=/app/zappa/uploads
         EOF
 
     - name: Set deployment variables
