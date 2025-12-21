@@ -19,4 +19,8 @@
     <include file="db/changelog/007-create-groups-table.xml"/>
     <include file="db/changelog/008-create-note-attachments-table.xml"/>
 
+    <!-- User management -->
+    <include file="db/changelog/009-create-users-table.xml"/>
+    <include file="db/changelog/010-insert-default-admin.xml"/>
+
 </databaseChangeLog>

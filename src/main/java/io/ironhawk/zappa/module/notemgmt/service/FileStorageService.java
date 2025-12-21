@@ -47,7 +47,7 @@ public class FileStorageService {
     // Maximum file size: 50MB
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-    public FileStorageService(@Value("${app.upload.dir:uploads}") String uploadDir,
+    public FileStorageService(@Value("${app.upload.dir}") String uploadDir,
                              NoteAttachmentRepository attachmentRepository,
                              Environment environment) {
         this.attachmentRepository = attachmentRepository;
@@ -57,7 +57,6 @@ public class FileStorageService {
         String[] activeProfiles = environment.getActiveProfiles();
         String envName = activeProfiles.length > 0 ? activeProfiles[0] : "default";
 
-        // Create path: /app/uploads/{env}/note-attachments
         this.uploadPath = Paths.get(uploadDir, envName, "note-attachments").toAbsolutePath().normalize();
 
         try {

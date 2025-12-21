@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="insert-default-admin-user" author="system">
+        <comment>Insert default admin user</comment>
+
+        <!-- Insert default admin user with BCrypt encoded password for 'zappa123' -->
+        <insert tableName="users">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="username" value="admin"/>
+            <column name="email" value="admin@zappa.local"/>
+            <column name="password" value="$2a$10$4DhP8INka/3xuICuDwGjMOlBKiUxl0e3xIOAFl8gicXQ4Tkug0tDq"/>
+            <column name="full_name" value="System Administrator"/>
+            <column name="role" value="ADMIN"/>
+            <column name="enabled" valueBoolean="true"/>
+            <column name="created_at" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="users">
+                <where>username = 'admin'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
