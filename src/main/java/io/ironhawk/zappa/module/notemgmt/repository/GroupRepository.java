@@ -1,6 +1,7 @@
 package io.ironhawk.zappa.module.notemgmt.repository;
 
 import io.ironhawk.zappa.module.notemgmt.entity.Group;
+import io.ironhawk.zappa.security.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,35 +14,39 @@ import java.util.UUID;
 @Repository
 public interface GroupRepository extends JpaRepository<Group, UUID> {
 
-    // Find by name
-    Optional<Group> findByName(String name);
-    boolean existsByName(String name);
+    // User-specific group queries
+    List<Group> findByUserOrderBySortOrderAscNameAsc(User user);
+    Optional<Group> findByIdAndUser(UUID id, User user);
 
-    // Find root groups (no parent)
-    List<Group> findByParentGroupIsNullOrderBySortOrderAscNameAsc();
+    // Find by name for specific user
+    Optional<Group> findByUserAndName(User user, String name);
+    boolean existsByUserAndName(User user, String name);
 
-    // Find subgroups of a parent
-    List<Group> findByParentGroupOrderBySortOrderAscNameAsc(Group parentGroup);
-    List<Group> findByParentGroupIdOrderBySortOrderAscNameAsc(UUID parentGroupId);
+    // Find root groups (no parent) for specific user
+    List<Group> findByUserAndParentGroupIsNullOrderBySortOrderAscNameAsc(User user);
 
-    // Find all groups with their hierarchy
-    @Query("SELECT g FROM Group g LEFT JOIN FETCH g.parentGroup ORDER BY g.sortOrder ASC, g.name ASC")
-    List<Group> findAllWithParent();
+    // Find subgroups of a parent for specific user
+    List<Group> findByUserAndParentGroupOrderBySortOrderAscNameAsc(User user, Group parentGroup);
+    List<Group> findByUserAndParentGroupIdOrderBySortOrderAscNameAsc(User user, UUID parentGroupId);
 
-    // Find groups by color
-    List<Group> findByColor(String color);
+    // Find all groups with their hierarchy for specific user
+    @Query("SELECT g FROM Group g LEFT JOIN FETCH g.parentGroup WHERE g.user = :user ORDER BY g.sortOrder ASC, g.name ASC")
+    List<Group> findAllWithParentByUser(@Param("user") User user);
 
-    // Count notes in group (direct only, not including subgroups)
-    @Query("SELECT COUNT(n) FROM Note n WHERE n.group.id = :groupId")
-    Long countNotesInGroup(@Param("groupId") UUID groupId);
+    // Find groups by color for specific user
+    List<Group> findByUserAndColor(User user, String color);
 
-    // Find groups with note counts
-    @Query("SELECT g, COUNT(n) FROM Group g LEFT JOIN g.notes n GROUP BY g ORDER BY g.sortOrder ASC, g.name ASC")
-    List<Object[]> findGroupsWithNoteCounts();
+    // Count notes in group (direct only, not including subgroups) for specific user
+    @Query("SELECT COUNT(n) FROM Note n WHERE n.user = :user AND n.group.id = :groupId")
+    Long countNotesInGroupByUser(@Param("user") User user, @Param("groupId") UUID groupId);
 
-    // Search groups by name or description
-    @Query("SELECT g FROM Group g WHERE " +
+    // Find groups with note counts for specific user
+    @Query("SELECT g, COUNT(n) FROM Group g LEFT JOIN g.notes n WHERE g.user = :user GROUP BY g ORDER BY g.sortOrder ASC, g.name ASC")
+    List<Object[]> findGroupsWithNoteCountsByUser(@Param("user") User user);
+
+    // Search groups by name or description for specific user
+    @Query("SELECT g FROM Group g WHERE g.user = :user AND (" +
            "LOWER(g.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(g.description) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
-    List<Group> searchGroups(@Param("searchTerm") String searchTerm);
+           "LOWER(g.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    List<Group> searchGroupsByUser(@Param("user") User user, @Param("searchTerm") String searchTerm);
 }

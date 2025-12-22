@@ -1,5 +1,6 @@
 package io.ironhawk.zappa.module.notemgmt.entity;
 
+import io.ironhawk.zappa.security.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -32,6 +33,10 @@ public class Note {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

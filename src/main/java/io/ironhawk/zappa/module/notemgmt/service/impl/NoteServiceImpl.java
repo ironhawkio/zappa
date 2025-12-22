@@ -11,6 +11,9 @@ import io.ironhawk.zappa.module.notemgmt.repository.NoteRepository;
 import io.ironhawk.zappa.module.notemgmt.repository.NoteTagRepository;
 import io.ironhawk.zappa.module.notemgmt.repository.TagRepository;
 import io.ironhawk.zappa.module.notemgmt.service.NoteService;
+import io.ironhawk.zappa.module.notemgmt.service.GroupService;
+import io.ironhawk.zappa.security.entity.User;
+import io.ironhawk.zappa.security.service.CurrentUserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,75 +33,102 @@ public class NoteServiceImpl implements NoteService {
     private final TagRepository tagRepository;
     private final NoteTagRepository noteTagRepository;
     private final GroupRepository groupRepository;
+    private final CurrentUserService currentUserService;
+    private final GroupService groupService;
 
     @Override
     @Transactional
     public Note createNote(Note note) {
-        log.info("Creating new note with title: {}", note.getTitle());
+        User currentUser = currentUserService.getCurrentUser();
+        note.setUser(currentUser);
+
+        // If user has no groups and note has no group assigned, create and assign default group
+        if (note.getGroup() == null && !groupService.hasAnyGroups()) {
+            Group defaultGroup = groupService.createDefaultGroup();
+            note.setGroup(defaultGroup);
+            log.info("Created default group '{}' for new user: {}", defaultGroup.getName(), currentUser.getUsername());
+        }
+
+        log.info("Creating new note with title: {} for user: {}", note.getTitle(), currentUser.getUsername());
         return noteRepository.save(note);
     }
 
     @Override
     public Optional<Note> getNoteById(UUID id) {
-        log.debug("Fetching note with id: {}", id);
-        return noteRepository.findById(id);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching note with id: {} for user: {}", id, currentUser.getUsername());
+        return noteRepository.findByIdAndUser(id, currentUser);
     }
 
     @Override
     @Transactional
     public Note updateNote(Note note) {
-        log.info("Updating note with id: {}", note.getId());
-        if (!noteRepository.existsById(note.getId())) {
-            throw new IllegalArgumentException("Note not found with id: " + note.getId());
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Updating note with id: {} for user: {}", note.getId(), currentUser.getUsername());
+
+        Optional<Note> existingNote = noteRepository.findByIdAndUser(note.getId(), currentUser);
+        if (existingNote.isEmpty()) {
+            throw new IllegalArgumentException("Note not found or access denied with id: " + note.getId());
         }
+
+        note.setUser(currentUser);
         return noteRepository.save(note);
     }
 
     @Override
     @Transactional
     public void deleteNote(UUID id) {
-        log.info("Deleting note with id: {}", id);
-        if (!noteRepository.existsById(id)) {
-            throw new IllegalArgumentException("Note not found with id: " + id);
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Deleting note with id: {} for user: {}", id, currentUser.getUsername());
+
+        Optional<Note> note = noteRepository.findByIdAndUser(id, currentUser);
+        if (note.isEmpty()) {
+            throw new IllegalArgumentException("Note not found or access denied with id: " + id);
         }
+
         noteRepository.deleteById(id);
     }
 
     @Override
     public List<Note> getAllNotes() {
-        log.debug("Fetching all notes");
-        return noteRepository.findAll();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching all notes for user: {}", currentUser.getUsername());
+        return noteRepository.findByUserOrderByCreatedAtDesc(currentUser);
     }
 
     @Override
     public List<Note> searchNotes(String searchTerm) {
-        log.debug("Searching notes with term: {}", searchTerm);
-        return noteRepository.searchNotes(searchTerm);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Searching notes with term: {} for user: {}", searchTerm, currentUser.getUsername());
+        return noteRepository.searchNotesByUser(currentUser, searchTerm);
     }
 
     @Override
     public List<Note> findNotesByTitle(String title) {
-        log.debug("Finding notes by title: {}", title);
-        return noteRepository.findByTitleContainingIgnoreCase(title);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding notes by title: {} for user: {}", title, currentUser.getUsername());
+        return noteRepository.findByUserAndTitleContainingIgnoreCase(currentUser, title);
     }
-
 
     @Override
     public List<Note> findNotesByContent(String keyword) {
-        log.debug("Finding notes by content keyword: {}", keyword);
-        return noteRepository.findByContentContainingIgnoreCase(keyword);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding notes by content keyword: {} for user: {}", keyword, currentUser.getUsername());
+        return noteRepository.findByUserAndContentContainingIgnoreCase(currentUser, keyword);
     }
 
     @Override
     public List<Note> findNotesByTagName(String tagName) {
-        log.debug("Finding notes by tag name: {}", tagName);
-        return noteRepository.findByTagName(tagName);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding notes by tag name: {} for user: {}", tagName, currentUser.getUsername());
+        return noteRepository.findByUserAndTagName(currentUser, tagName);
     }
 
     @Override
     public List<Note> findNotesByTagNames(List<String> tagNames) {
-        log.debug("Finding notes by tag names: {}", tagNames);
-        return noteRepository.findByTagNames(tagNames);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding notes by tag names: {} for user: {}", tagNames, currentUser.getUsername());
+        return noteRepository.findByUserAndTagNames(currentUser, tagNames);
     }
 
     @Override
@@ -121,7 +151,7 @@ public class NoteServiceImpl implements NoteService {
         NoteTag noteTag = NoteTag.of(note, tag);
         noteTagRepository.save(noteTag);
 
-        return noteRepository.findByIdWithTags(noteId).orElse(note);
+        return noteRepository.findByIdAndUserWithTags(noteId, currentUserService.getCurrentUser()).orElse(note);
     }
 
     @Override
@@ -135,27 +165,29 @@ public class NoteServiceImpl implements NoteService {
 
         noteTagRepository.deleteByNoteIdAndTagId(noteId, tagId);
 
-        return noteRepository.findByIdWithTags(noteId)
+        return noteRepository.findByIdAndUserWithTags(noteId, currentUserService.getCurrentUser())
             .orElseThrow(() -> new IllegalArgumentException("Note not found with id: " + noteId));
     }
 
     @Override
     public Page<Note> getNotes(Pageable pageable) {
-        log.debug("Fetching notes with pagination: {}", pageable);
-        return noteRepository.findAll(pageable);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching notes with pagination: {} for user: {}", pageable, currentUser.getUsername());
+        return noteRepository.findByUserOrderByCreatedAtDesc(currentUser, pageable);
     }
 
     @Override
     public Page<Note> searchNotes(String searchTerm, Pageable pageable) {
-        log.debug("Searching notes with term: {} and pagination: {}", searchTerm, pageable);
-        return noteRepository.findByTitleContainingIgnoreCase(searchTerm, pageable);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Searching notes with term: {} and pagination: {} for user: {}", searchTerm, pageable, currentUser.getUsername());
+        return noteRepository.searchNotesByUser(currentUser, searchTerm, pageable);
     }
-
 
     @Override
     public Optional<Note> getNoteWithTags(UUID id) {
-        log.debug("Fetching note with tags for id: {}", id);
-        return noteRepository.findByIdWithTags(id);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching note with tags for id: {} for user: {}", id, currentUser.getUsername());
+        return noteRepository.findByIdAndUserWithTags(id, currentUser);
     }
 
     @Override
@@ -173,7 +205,8 @@ public class NoteServiceImpl implements NoteService {
         if (tagNames == null || tagNames.isEmpty()) {
             return List.of();
         }
-        return noteRepository.findByTagNames(tagNames);
+        User currentUser = currentUserService.getCurrentUser();
+        return noteRepository.findByUserAndTagNames(currentUser, tagNames);
     }
 
     @Override
@@ -196,8 +229,9 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public List<Note> findNotesByGroup(UUID groupId) {
-        log.debug("Finding notes by group: {}", groupId);
-        return noteRepository.findByGroupIdOrderByCreatedAtDesc(groupId);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding notes by group: {} for user: {}", groupId, currentUser.getUsername());
+        return noteRepository.findByUserAndGroupIdOrderByCreatedAtDesc(currentUser, groupId);
     }
 
     @Override
@@ -208,14 +242,16 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public List<Note> findUngroupedNotes() {
-        log.debug("Finding ungrouped notes");
-        return noteRepository.findByGroupIsNullOrderByCreatedAtDesc();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding ungrouped notes for user: {}", currentUser.getUsername());
+        return noteRepository.findByUserAndGroupIsNullOrderByCreatedAtDesc(currentUser);
     }
 
     @Override
     public Page<Note> findNotesByGroup(UUID groupId, Pageable pageable) {
-        log.debug("Finding notes by group with pagination: {} - {}", groupId, pageable);
-        return noteRepository.findByGroupIdOrderByCreatedAtDesc(groupId, pageable);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding notes by group with pagination: {} - {} for user: {}", groupId, pageable, currentUser.getUsername());
+        return noteRepository.findByUserAndGroupIdOrderByCreatedAtDesc(currentUser, groupId, pageable);
     }
 
     @Override
@@ -226,8 +262,9 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public Page<Note> findUngroupedNotes(Pageable pageable) {
-        log.debug("Finding ungrouped notes with pagination: {}", pageable);
-        return noteRepository.findByGroupIsNullOrderByCreatedAtDesc(pageable);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding ungrouped notes with pagination: {} for user: {}", pageable, currentUser.getUsername());
+        return noteRepository.findByUserAndGroupIsNullOrderByCreatedAtDesc(currentUser, pageable);
     }
 
     @Override

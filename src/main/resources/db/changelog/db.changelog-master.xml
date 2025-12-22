@@ -22,5 +22,6 @@
     <!-- User management -->
     <include file="db/changelog/009-create-users-table.xml"/>
     <include file="db/changelog/010-insert-default-admin.xml"/>
+    <include file="/db/changelog/012-add-multi-tenant.xml"/>
 
 </databaseChangeLog>

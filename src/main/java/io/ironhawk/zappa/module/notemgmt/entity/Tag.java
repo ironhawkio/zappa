@@ -1,5 +1,6 @@
 package io.ironhawk.zappa.module.notemgmt.entity;
 
+import io.ironhawk.zappa.security.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -28,6 +29,10 @@ public class Tag {
 
     @Column(length = 255)
     private String color;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

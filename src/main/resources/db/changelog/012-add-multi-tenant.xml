@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="add-user-isolation-columns" author="system">
+        <comment>Add user_id columns to enable user isolation across all entities</comment>
+
+        <!-- Add user_id to notes table -->
+        <addColumn tableName="notes">
+            <column name="user_id" type="UUID">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Add user_id to tags table -->
+        <addColumn tableName="tags">
+            <column name="user_id" type="UUID">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Add user_id to groups table -->
+        <addColumn tableName="groups">
+            <column name="user_id" type="UUID">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Add foreign key constraints -->
+        <addForeignKeyConstraint
+            baseTableName="notes"
+            baseColumnNames="user_id"
+            referencedTableName="users"
+            referencedColumnNames="id"
+            constraintName="fk_notes_user_id"/>
+
+        <addForeignKeyConstraint
+            baseTableName="tags"
+            baseColumnNames="user_id"
+            referencedTableName="users"
+            referencedColumnNames="id"
+            constraintName="fk_tags_user_id"/>
+
+        <addForeignKeyConstraint
+            baseTableName="groups"
+            baseColumnNames="user_id"
+            referencedTableName="users"
+            referencedColumnNames="id"
+            constraintName="fk_groups_user_id"/>
+
+        <!-- Add indexes for performance -->
+        <createIndex indexName="idx_notes_user_id" tableName="notes">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createIndex indexName="idx_tags_user_id" tableName="tags">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createIndex indexName="idx_groups_user_id" tableName="groups">
+            <column name="user_id"/>
+        </createIndex>
+
+    </changeSet>
+
+    <changeSet id="assign-existing-data-to-admin" author="system">
+        <comment>Assign existing notes, tags, and groups to the admin user</comment>
+
+        <sql>
+            UPDATE notes SET user_id = (SELECT id FROM users WHERE username = 'admin') WHERE user_id IS NULL;
+        </sql>
+
+        <sql>
+            UPDATE tags SET user_id = (SELECT id FROM users WHERE username = 'admin') WHERE user_id IS NULL;
+        </sql>
+
+        <sql>
+            UPDATE groups SET user_id = (SELECT id FROM users WHERE username = 'admin') WHERE user_id IS NULL;
+        </sql>
+
+        <!-- Make user_id columns not nullable after assignment -->
+        <addNotNullConstraint tableName="notes" columnName="user_id"/>
+        <addNotNullConstraint tableName="tags" columnName="user_id"/>
+        <addNotNullConstraint tableName="groups" columnName="user_id"/>
+
+    </changeSet>
+
+</databaseChangeLog>

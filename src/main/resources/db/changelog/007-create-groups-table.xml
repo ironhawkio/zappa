@@ -35,43 +35,6 @@
             </column>
         </addColumn>
 
-        <!-- Create default groups -->
-        <insert tableName="groups">
-            <column name="id" valueComputed="gen_random_uuid()"/>
-            <column name="name" value="General"/>
-            <column name="description" value="General notes and miscellaneous content"/>
-            <column name="color" value="#6c757d"/>
-            <column name="icon" value="fas fa-sticky-note"/>
-            <column name="sort_order" value="0"/>
-        </insert>
-
-        <insert tableName="groups">
-            <column name="id" valueComputed="gen_random_uuid()"/>
-            <column name="name" value="Programming"/>
-            <column name="description" value="Software development, coding, and technical notes"/>
-            <column name="color" value="#007bff"/>
-            <column name="icon" value="fas fa-code"/>
-            <column name="sort_order" value="1"/>
-        </insert>
-
-        <insert tableName="groups">
-            <column name="id" valueComputed="gen_random_uuid()"/>
-            <column name="name" value="Photography"/>
-            <column name="description" value="Photography techniques, equipment, and creative projects"/>
-            <column name="color" value="#fd7e14"/>
-            <column name="icon" value="fas fa-camera"/>
-            <column name="sort_order" value="2"/>
-        </insert>
-
-        <insert tableName="groups">
-            <column name="id" valueComputed="gen_random_uuid()"/>
-            <column name="name" value="Planting"/>
-            <column name="description" value="Gardening, plant care, and agricultural notes"/>
-            <column name="color" value="#28a745"/>
-            <column name="icon" value="fas fa-seedling"/>
-            <column name="sort_order" value="3"/>
-        </insert>
-
         <rollback>
             <dropColumn tableName="notes" columnName="group_id"/>
             <dropTable tableName="groups"/>
