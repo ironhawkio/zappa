@@ -23,35 +23,6 @@ services:
     networks:
       - zappa-network
 
-  zappa-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: zappa-app
-    restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
-      SPRING_LIQUIBASE_ENABLED: ${SPRING_LIQUIBASE_ENABLED}
-    ports:
-      - "${SERVER_PORT}:6886"
-    volumes:
-      - ./uploads:/app/zappa/uploads
-    depends_on:
-      postgresql:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6886/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - zappa-network
-
 networks:
   zappa-network:
     driver: bridge

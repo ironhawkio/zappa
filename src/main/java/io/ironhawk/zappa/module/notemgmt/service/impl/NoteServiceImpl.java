@@ -42,11 +42,24 @@ public class NoteServiceImpl implements NoteService {
         User currentUser = currentUserService.getCurrentUser();
         note.setUser(currentUser);
 
-        // If user has no groups and note has no group assigned, create and assign default group
-        if (note.getGroup() == null && !groupService.hasAnyGroups()) {
-            Group defaultGroup = groupService.createDefaultGroup();
+        // If note has no group assigned, assign to default group
+        if (note.getGroup() == null) {
+            Group defaultGroup;
+            if (!groupService.hasAnyGroups()) {
+                // Create default group for new users
+                defaultGroup = groupService.createDefaultGroup();
+                log.info("Created default group '{}' for new user: {}", defaultGroup.getName(), currentUser.getUsername());
+            } else {
+                // Use existing default group or create one if none exists
+                defaultGroup = groupService.findByName("Default")
+                    .orElseGet(() -> {
+                        Group newDefault = groupService.createDefaultGroup();
+                        log.info("Created default group '{}' for user: {}", newDefault.getName(), currentUser.getUsername());
+                        return newDefault;
+                    });
+            }
             note.setGroup(defaultGroup);
-            log.info("Created default group '{}' for new user: {}", defaultGroup.getName(), currentUser.getUsername());
+            log.debug("Assigned note to default group for user: {}", currentUser.getUsername());
         }
 
         log.info("Creating new note with title: {} for user: {}", note.getTitle(), currentUser.getUsername());
