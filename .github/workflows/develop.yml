@@ -93,7 +93,7 @@ jobs:
         SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
         SPRING_JPA_HIBERNATE_DDL_AUTO=validate
         SPRING_LIQUIBASE_ENABLED=true
-        SERVER_PORT=6885
+        SERVER_PORT=6886
         APP_UPLOAD_DIR=/app/zappa/uploads
 
         # Docker image configuration

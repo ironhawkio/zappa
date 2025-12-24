@@ -15,7 +15,7 @@ services:
       SPRING_LIQUIBASE_ENABLED: true
       APP_UPLOAD_DIR: ${APP_UPLOAD_DIR}
     ports:
-      - "${SERVER_PORT}:6886"
+      - "6886:6886"
     volumes:
       - zappa_prod_uploads:/app/zappa/uploads
     healthcheck:
