@@ -93,33 +93,80 @@ jobs:
         SPRING_DATASOURCE_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
         SPRING_JPA_HIBERNATE_DDL_AUTO=validate
         SPRING_LIQUIBASE_ENABLED=true
-        SERVER_PORT=6886
-        UPLOAD_DIR=/app/zappa/uploads
+        APP_UPLOAD_DIR=/app/zappa/uploads
         
         # Docker image configuration
         REGISTRY=${{ env.REGISTRY }}
         IMAGE_NAME=${{ env.IMAGE_NAME }}
-        IMAGE_TAG=dev-$(echo ${{ github.sha }} | cut -c1-7)
+        IMAGE_TAG=prod-$(echo ${{ github.sha }} | cut -c1-7)
         EOF
 
+    - name: Decrypt SSH access key
+      env:
+        ACCESS_KEY_PASSPHRASE: ${{ secrets.ACCESS_KEY_PASSPHRASE }}
+      run: |
+        # Debug: Check if passphrase is available (don't print actual value)
+        if [ -z "$ACCESS_KEY_PASSPHRASE" ]; then
+          echo "❌ ERROR: ACCESS_KEY_PASSPHRASE is empty"
+          echo "Check that the secret is configured in the 'prod' environment"
+          exit 1
+        fi
+
+        echo "🔓 Decrypting SSH key..."
+        gpg --quiet --batch --yes --decrypt --passphrase="$ACCESS_KEY_PASSPHRASE" --output $HOME/access_key.pem access_key.pem.gpg
+        chmod 600 $HOME/access_key.pem
+
     - name: Deploy to prod
+      env:
+        REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+        REMOTE_USER: ${{ secrets.REMOTE_USER }}
+        REMOTE_PATH: ${{ vars.REMOTE_PATH }}
       run: |
-        docker compose -f docker-compose.prod.yml down
-        docker compose -f docker-compose.prod.yml pull
-        docker compose -f docker-compose.prod.yml up -d
+        echo "🚀 Deploying to prod..."
 
-    - name: Wait for application to be ready
-      run: |
-        timeout 120 bash -c 'until curl -f http://localhost:6886/actuator/health; do sleep 10; done'
+        # Ensure remote path exists and has proper permissions on remote server
+        ssh -i $HOME/access_key.pem -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST << EOF
+          if [ ! -d "$REMOTE_PATH" ]; then
+            echo "📁 Creating deployment directory $REMOTE_PATH..."
+            sudo mkdir -p $REMOTE_PATH
+            sudo chown $REMOTE_USER:$REMOTE_USER $REMOTE_PATH
+            sudo chmod 755 $REMOTE_PATH
+            echo "✅ Directory $REMOTE_PATH created"
+          else
+            echo "📁 Directory $REMOTE_PATH already exists"
+          fi
+        EOF
 
-    - name: Run prod smoke tests
-      run: |
-        echo "🧪 Testing prod deployment..."
-        curl -f http://localhost:6886/actuator/health
-        curl -f http://localhost:6886/notes
-        echo "✅ Prod deployment successful!"
+        # Upload deployment files to remote server
+        echo "📤 Uploading deployment files..."
+        scp -i $HOME/access_key.pem -o StrictHostKeyChecking=no \
+          docker-compose.prod.yml .env $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/
 
-    - name: Notify deployment success
+        # Deploy on remote server
+        ssh -i $HOME/access_key.pem -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PATH ; bash" << EOF
+          set -e  # Exit on any error
+
+          echo "🛑 Stopping existing containers..."
+          docker compose -f docker-compose.prod.yml down || true
+
+          echo "🐳 Pulling latest image..."
+          docker compose -f docker-compose.prod.yml pull
+
+          echo "▶️ Starting services..."
+          docker compose -f docker-compose.prod.yml up -d
+
+          echo "🔍 Waiting for application health check..."
+          if timeout 120 bash -c 'until curl -sf http://localhost:6886/actuator/health; do sleep 5; done'; then
+            echo "🩺 Health check passed"
+          else
+            echo "🩺 Health check failed after 120 seconds"
+            echo "📋 Container logs:"
+            docker compose -f docker-compose.prod.yml logs --tail=20
+            exit 1
+          fi
+        EOF
+
+    - name: Cleanup SSH key
+      if: always()
       run: |
-        echo "🎉 Zappa prod deployment completed!"
-        echo "🌐 Application: http://localhost:6886"
+        rm -f $HOME/access_key.pem
