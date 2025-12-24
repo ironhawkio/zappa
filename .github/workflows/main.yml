@@ -81,7 +81,7 @@ jobs:
     - name: Setup deployment environment
       run: |
         cat > .env << EOF
-        APP_NAME=zappa-prod
+        APP_NAME=zappa
         POSTGRES_DB=${{ vars.POSTGRES_DB }}
         POSTGRES_USER=${{ vars.POSTGRES_USER }}
         POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
