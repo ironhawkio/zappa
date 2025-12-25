@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import io.ironhawk.zappa.module.notemgmt.entity.Group;
 import io.ironhawk.zappa.module.notemgmt.repository.GroupRepository;
 import io.ironhawk.zappa.module.notemgmt.service.GroupService;
+import io.ironhawk.zappa.security.entity.User;
+import io.ironhawk.zappa.security.service.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,13 +22,16 @@ import java.util.UUID;
 public class GroupServiceImpl implements GroupService {
 
     private final GroupRepository groupRepository;
+    private final CurrentUserService currentUserService;
 
     @Override
     @Transactional
     public Group createGroup(Group group) {
-        log.info("Creating new group with name: {}", group.getName());
+        User currentUser = currentUserService.getCurrentUser();
+        group.setUser(currentUser);
+        log.info("Creating new group with name: {} for user: {}", group.getName(), currentUser.getUsername());
 
-        if (groupRepository.existsByName(group.getName())) {
+        if (groupRepository.existsByUserAndName(currentUser, group.getName())) {
             throw new IllegalArgumentException("Group with name '" + group.getName() + "' already exists");
         }
 
@@ -35,21 +40,23 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public Optional<Group> getGroupById(UUID id) {
-        log.debug("Fetching group with id: {}", id);
-        return groupRepository.findById(id);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching group with id: {} for user: {}", id, currentUser.getUsername());
+        return groupRepository.findByIdAndUser(id, currentUser);
     }
 
     @Override
     @Transactional
     public Group updateGroup(Group group) {
-        log.info("Updating group with id: {}", group.getId());
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Updating group with id: {} for user: {}", group.getId(), currentUser.getUsername());
 
         if (!groupRepository.existsById(group.getId())) {
             throw new IllegalArgumentException("Group not found with id: " + group.getId());
         }
 
         // Check for name conflicts (excluding current group)
-        Optional<Group> existingGroup = groupRepository.findByName(group.getName());
+        Optional<Group> existingGroup = groupRepository.findByUserAndName(currentUser, group.getName());
         if (existingGroup.isPresent() && !existingGroup.get().getId().equals(group.getId())) {
             throw new IllegalArgumentException("Group with name '" + group.getName() + "' already exists");
         }
@@ -71,47 +78,55 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public List<Group> getAllGroups() {
-        log.debug("Fetching all groups");
-        return groupRepository.findAllWithParent();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching all groups for user: {}", currentUser.getUsername());
+        return groupRepository.findAllWithParentByUser(currentUser);
     }
 
     @Override
     public List<Group> getRootGroups() {
-        log.debug("Fetching root groups");
-        return groupRepository.findByParentGroupIsNullOrderBySortOrderAscNameAsc();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching root groups for user: {}", currentUser.getUsername());
+        return groupRepository.findByUserAndParentGroupIsNullOrderBySortOrderAscNameAsc(currentUser);
     }
 
     @Override
     public List<Group> getSubGroups(UUID parentGroupId) {
-        log.debug("Fetching subgroups for parent group: {}", parentGroupId);
-        return groupRepository.findByParentGroupIdOrderBySortOrderAscNameAsc(parentGroupId);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching subgroups for parent group: {} for user: {}", parentGroupId, currentUser.getUsername());
+        return groupRepository.findByUserAndParentGroupIdOrderBySortOrderAscNameAsc(currentUser, parentGroupId);
     }
 
     @Override
     public List<Group> getAllGroupsWithParent() {
-        return groupRepository.findAllWithParent();
+        User currentUser = currentUserService.getCurrentUser();
+        return groupRepository.findAllWithParentByUser(currentUser);
     }
 
     @Override
     public Optional<Group> findByName(String name) {
-        log.debug("Finding group by name: {}", name);
-        return groupRepository.findByName(name);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding group by name: {} for user: {}", name, currentUser.getUsername());
+        return groupRepository.findByUserAndName(currentUser, name);
     }
 
     @Override
     public List<Group> searchGroups(String searchTerm) {
-        log.debug("Searching groups with term: {}", searchTerm);
-        return groupRepository.searchGroups(searchTerm);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Searching groups with term: {} for user: {}", searchTerm, currentUser.getUsername());
+        return groupRepository.searchGroupsByUser(currentUser, searchTerm);
     }
 
     @Override
     @Transactional
     public Group getOrCreateGroup(String name, String description) {
-        log.debug("Getting or creating group: {}", name);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting or creating group: {} for user: {}", name, currentUser.getUsername());
 
-        return groupRepository.findByName(name)
+        return groupRepository.findByUserAndName(currentUser, name)
             .orElseGet(() -> {
                 Group newGroup = Group.of(name, description);
+                newGroup.setUser(currentUser);
                 return groupRepository.save(newGroup);
             });
     }
@@ -164,14 +179,16 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public Long countNotesInGroup(UUID groupId) {
-        log.debug("Counting notes in group: {}", groupId);
-        return groupRepository.countNotesInGroup(groupId);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Counting notes in group: {} for user: {}", groupId, currentUser.getUsername());
+        return groupRepository.countNotesInGroupByUser(currentUser, groupId);
     }
 
     @Override
     public List<Object[]> getGroupsWithNoteCounts() {
-        log.debug("Fetching groups with note counts");
-        return groupRepository.findGroupsWithNoteCounts();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching groups with note counts for user: {}", currentUser.getUsername());
+        return groupRepository.findGroupsWithNoteCountsByUser(currentUser);
     }
 
     @Override
@@ -195,14 +212,36 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public Group getDefaultGroup() {
-        log.debug("Getting default group");
-        return groupRepository.findByName("General")
-            .orElseGet(() -> {
-                log.warn("Default 'General' group not found, creating it");
-                Group defaultGroup = Group.of("General", "General notes and miscellaneous content", "#6c757d", "fas fa-sticky-note");
-                return groupRepository.save(defaultGroup);
-            });
+    public boolean hasAnyGroups() {
+        User currentUser = currentUserService.getCurrentUser();
+        List<Group> userGroups = groupRepository.findByUserOrderBySortOrderAscNameAsc(currentUser);
+        return !userGroups.isEmpty();
+    }
+
+    @Override
+    @Transactional
+    public Group createDefaultGroup() {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Ensuring default group exists for user: {}", currentUser.getUsername());
+
+        if (hasAnyGroups()) {
+            return groupRepository.findByUserAndParentGroupIsNullOrderBySortOrderAscNameAsc(currentUser)
+                .stream()
+                .findFirst()
+                .orElse(null);
+        }
+
+        log.info("Creating default group for new user: {}", currentUser.getUsername());
+        Group defaultGroup = Group.builder()
+            .name("Default")
+            .description("Default group for your notes")
+            .color("#6c757d")
+            .icon("fas fa-sticky-note")
+            .user(currentUser)
+            .sortOrder(0)
+            .build();
+
+        return groupRepository.save(defaultGroup);
     }
 
     // Helper method to check for circular references

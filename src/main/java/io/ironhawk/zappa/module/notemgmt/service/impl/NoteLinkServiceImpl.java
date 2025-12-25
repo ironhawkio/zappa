@@ -8,6 +8,8 @@ import io.ironhawk.zappa.module.notemgmt.entity.NoteLinkType;
 import io.ironhawk.zappa.module.notemgmt.repository.NoteLinkRepository;
 import io.ironhawk.zappa.module.notemgmt.repository.NoteRepository;
 import io.ironhawk.zappa.module.notemgmt.service.NoteLinkService;
+import io.ironhawk.zappa.security.entity.User;
+import io.ironhawk.zappa.security.service.CurrentUserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class NoteLinkServiceImpl implements NoteLinkService {
 
     private final NoteLinkRepository noteLinkRepository;
     private final NoteRepository noteRepository;
+    private final CurrentUserService currentUserService;
 
     @Override
     @Transactional
@@ -76,15 +79,16 @@ public class NoteLinkServiceImpl implements NoteLinkService {
     @Override
     @Transactional
     public NoteLink createLink(UUID sourceNoteId, UUID targetNoteId, NoteLinkType linkType, Integer weight) {
-        log.info("Creating link from note {} to note {} with type {} and weight {}",
-            sourceNoteId, targetNoteId, linkType, weight);
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Creating link from note {} to note {} with type {} and weight {} for user: {}",
+            sourceNoteId, targetNoteId, linkType, weight, currentUser.getUsername());
 
-        // Validate notes exist
-        Note sourceNote = noteRepository.findById(sourceNoteId)
-            .orElseThrow(() -> new IllegalArgumentException("Source note not found with id: " + sourceNoteId));
+        // Validate notes exist and belong to current user
+        Note sourceNote = noteRepository.findByIdAndUser(sourceNoteId, currentUser)
+            .orElseThrow(() -> new IllegalArgumentException("Source note not found or access denied with id: " + sourceNoteId));
 
-        Note targetNote = noteRepository.findById(targetNoteId)
-            .orElseThrow(() -> new IllegalArgumentException("Target note not found with id: " + targetNoteId));
+        Note targetNote = noteRepository.findByIdAndUser(targetNoteId, currentUser)
+            .orElseThrow(() -> new IllegalArgumentException("Target note not found or access denied with id: " + targetNoteId));
 
         // Check if link already exists
         if (noteLinkRepository.existsBySourceNoteIdAndTargetNoteIdAndLinkType(sourceNoteId, targetNoteId, linkType)) {

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="create-users-table" author="system">
+        <comment>Create users table for authentication</comment>
+
+        <createTable tableName="users">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="username" type="VARCHAR(50)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+
+            <column name="email" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+
+            <column name="password" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="full_name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="role" type="VARCHAR(20)" defaultValue="USER">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="enabled" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="last_login" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <!-- Add indexes for better performance -->
+        <createIndex indexName="idx_users_username" tableName="users">
+            <column name="username"/>
+        </createIndex>
+
+        <createIndex indexName="idx_users_email" tableName="users">
+            <column name="email"/>
+        </createIndex>
+
+        <createIndex indexName="idx_users_role" tableName="users">
+            <column name="role"/>
+        </createIndex>
+
+        <createIndex indexName="idx_users_enabled" tableName="users">
+            <column name="enabled"/>
+        </createIndex>
+    </changeSet>
+
+
+</databaseChangeLog>

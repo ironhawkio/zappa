@@ -1,5 +1,6 @@
 package io.ironhawk.zappa.module.notemgmt.entity;
 
+import io.ironhawk.zappa.security.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -34,6 +35,10 @@ public class Group {
 
     @Column(length = 50) // For Font Awesome icon classes like 'fas fa-seedling'
     private String icon;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     // Self-referencing for hierarchical structure
     @ManyToOne(fetch = FetchType.LAZY)

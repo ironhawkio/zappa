@@ -8,6 +8,7 @@ import io.ironhawk.zappa.module.notemgmt.entity.NoteLink;
 import io.ironhawk.zappa.module.notemgmt.service.GroupService;
 import io.ironhawk.zappa.module.notemgmt.service.NoteLinkService;
 import io.ironhawk.zappa.module.notemgmt.service.NoteService;
+import io.ironhawk.zappa.module.notemgmt.service.TagService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -26,49 +27,25 @@ public class GraphWebController {
     private final NoteService noteService;
     private final NoteLinkService noteLinkService;
     private final GroupService groupService;
+    private final TagService tagService;
 
     @GetMapping
     public String showGraphVisualization(
         @RequestParam(defaultValue = "") String group,
         @RequestParam(defaultValue = "false") boolean includeSubGroups,
+        @RequestParam(defaultValue = "") String tags,
+        @RequestParam(defaultValue = "any") String tagFilter, // "any" or "all"
         Model model) {
 
-        List<Note> notes;
-        List<NoteLink> links;
-
-        if (!group.isEmpty()) {
-            try {
-                UUID groupId = UUID.fromString(group);
-                Optional<Group> selectedGroup = groupService.getGroupById(groupId);
-
-                if (selectedGroup.isPresent()) {
-                    if (includeSubGroups) {
-                        notes = noteService.findNotesByGroupIncludingSubGroups(groupId);
-                        links = noteLinkService.findLinksInGroupIncludingSubGroups(groupId);
-                    } else {
-                        notes = noteService.findNotesByGroup(groupId);
-                        links = noteLinkService.findLinksInGroup(groupId);
-                    }
-
-                    model.addAttribute("selectedGroup", selectedGroup.get());
-                    model.addAttribute("includeSubGroups", includeSubGroups);
-                } else {
-                    notes = noteService.getAllNotes();
-                    links = noteLinkService.getAllLinks();
-                }
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid group ID: {}", group);
-                notes = noteService.getAllNotes();
-                links = noteLinkService.getAllLinks();
-            }
-        } else {
-            notes = noteService.getAllNotes();
-            links = noteLinkService.getAllLinks();
-        }
+        List<Note> notes = getFilteredNotes(group, includeSubGroups, tags, tagFilter, model);
+        List<NoteLink> links = getLinksForNotes(notes);
 
         model.addAttribute("totalNodes", notes.size());
         model.addAttribute("totalLinks", links.size());
         model.addAttribute("allGroups", groupService.getRootGroups());
+        model.addAttribute("allTags", tagService.getAllTags());
+        model.addAttribute("selectedTags", tags);
+        model.addAttribute("tagFilter", tagFilter);
 
         return "graph/visualization";
     }
@@ -77,30 +54,12 @@ public class GraphWebController {
     @ResponseBody
     public Map<String, Object> getGraphData(
         @RequestParam(defaultValue = "") String group,
-        @RequestParam(defaultValue = "false") boolean includeSubGroups) {
+        @RequestParam(defaultValue = "false") boolean includeSubGroups,
+        @RequestParam(defaultValue = "") String tags,
+        @RequestParam(defaultValue = "any") String tagFilter) {
 
-        List<Note> notes;
-        List<NoteLink> links;
-
-        if (!group.isEmpty()) {
-            try {
-                UUID groupId = UUID.fromString(group);
-                if (includeSubGroups) {
-                    notes = noteService.findNotesByGroupIncludingSubGroups(groupId);
-                    links = noteLinkService.findLinksInGroupIncludingSubGroups(groupId);
-                } else {
-                    notes = noteService.findNotesByGroup(groupId);
-                    links = noteLinkService.findLinksInGroup(groupId);
-                }
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid group ID for graph data: {}", group);
-                notes = noteService.getAllNotes();
-                links = noteLinkService.getAllLinks();
-            }
-        } else {
-            notes = noteService.getAllNotes();
-            links = noteLinkService.getAllLinks();
-        }
+        List<Note> notes = getFilteredNotes(group, includeSubGroups, tags, tagFilter, null);
+        List<NoteLink> links = getLinksForNotes(notes);
 
         // Create nodes data
         List<Map<String, Object>> nodes = notes.stream()
@@ -244,5 +203,69 @@ public class GraphWebController {
             case "MANUAL" -> "#6c757d";        // Gray
             default -> "#17a2b8";              // Teal
         };
+    }
+
+    private List<Note> getFilteredNotes(String group, boolean includeSubGroups, String tags, String tagFilter, Model model) {
+        List<Note> notes;
+
+        // First filter by group
+        if (!group.isEmpty()) {
+            try {
+                UUID groupId = UUID.fromString(group);
+                Optional<Group> selectedGroup = groupService.getGroupById(groupId);
+
+                if (selectedGroup.isPresent()) {
+                    if (includeSubGroups) {
+                        notes = noteService.findNotesByGroupIncludingSubGroups(groupId);
+                    } else {
+                        notes = noteService.findNotesByGroup(groupId);
+                    }
+
+                    if (model != null) {
+                        model.addAttribute("selectedGroup", selectedGroup.get());
+                        model.addAttribute("includeSubGroups", includeSubGroups);
+                    }
+                } else {
+                    notes = noteService.getAllNotes();
+                }
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid group ID: {}", group);
+                notes = noteService.getAllNotes();
+            }
+        } else {
+            notes = noteService.getAllNotes();
+        }
+
+        // Then filter by tags if specified
+        if (!tags.isEmpty()) {
+            List<String> tagNames = Arrays.asList(tags.split(","));
+            tagNames = tagNames.stream().map(String::trim).filter(tag -> !tag.isEmpty()).collect(Collectors.toList());
+
+            if (!tagNames.isEmpty()) {
+                if ("all".equals(tagFilter)) {
+                    // Notes must have ALL specified tags
+                    notes = noteService.findNotesByAllTags(tagNames);
+                } else {
+                    // Notes must have ANY of the specified tags
+                    notes = noteService.findNotesByAnyTags(tagNames);
+                }
+            }
+        }
+
+        return notes;
+    }
+
+    private List<NoteLink> getLinksForNotes(List<Note> notes) {
+        if (notes.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<UUID> noteIds = notes.stream().map(Note::getId).collect(Collectors.toSet());
+
+        // Get all links and filter to only include links between the filtered notes
+        return noteLinkService.getAllLinks().stream()
+            .filter(link -> noteIds.contains(link.getSourceNote().getId()) &&
+                           noteIds.contains(link.getTargetNote().getId()))
+            .collect(Collectors.toList());
     }
 }

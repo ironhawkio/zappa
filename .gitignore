@@ -35,3 +35,16 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Environment Files ###
+.env
+.env.local
+.env.prod
+.env.dev
+
+# Keep example file in version control
+!.env.example
+
+### File Uploads ###
+uploads/
+uploads/**

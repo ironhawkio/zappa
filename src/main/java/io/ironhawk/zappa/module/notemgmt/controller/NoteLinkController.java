@@ -2,6 +2,7 @@ package io.ironhawk.zappa.module.notemgmt.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.ironhawk.zappa.module.notemgmt.dto.NoteLinkDto;
 import io.ironhawk.zappa.module.notemgmt.entity.NoteLink;
 import io.ironhawk.zappa.module.notemgmt.entity.NoteLinkType;
 import io.ironhawk.zappa.module.notemgmt.service.NoteLinkService;
@@ -22,7 +23,7 @@ NoteLinkController {
     private final NoteLinkService noteLinkService;
 
     @PostMapping
-    public ResponseEntity<NoteLink> createLink(
+    public ResponseEntity<NoteLinkDto> createLink(
         @RequestParam UUID sourceNoteId,
         @RequestParam UUID targetNoteId,
         @RequestParam NoteLinkType linkType,
@@ -30,7 +31,8 @@ NoteLinkController {
 
         try {
             NoteLink link = noteLinkService.createLink(sourceNoteId, targetNoteId, linkType, weight);
-            return ResponseEntity.status(HttpStatus.CREATED).body(link);
+            NoteLinkDto dto = NoteLinkDto.fromEntity(link);
+            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
         } catch (Exception e) {
             log.error("Error creating note link", e);
             return ResponseEntity.badRequest().build();

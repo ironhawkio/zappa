@@ -1,0 +1,60 @@
+# Development environment docker-compose
+# Used by GitHub Actions dev workflow
+
+services:
+  postgresql:
+    image: postgres:15-alpine
+    container_name: zappa-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - zappa-dev-network
+
+  zappa-app:
+    image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: zappa-app-dev
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_LIQUIBASE_ENABLED: true
+      APP_UPLOAD_DIR: ${APP_UPLOAD_DIR}
+    ports:
+      - "36886:6886"
+    volumes:
+      - zappa_dev_uploads:/app/zappa/uploads
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6886/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - zappa-dev-network
+
+networks:
+  zappa-dev-network:
+    driver: bridge
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  zappa_dev_uploads:
+    driver: local

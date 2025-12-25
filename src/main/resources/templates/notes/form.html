@@ -18,7 +18,7 @@
                         </h4>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{/notes}" method="post" th:object="${note}">
+                        <form th:action="@{/notes}" method="post" th:object="${note}" enctype="multipart/form-data">
                             <div class="mb-3">
                                 <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="title" th:field="*{title}"
@@ -114,6 +114,43 @@ Code block
                                 </div>
                             </div>
 
+                            <!-- File Attachments -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-paperclip me-2"></i>File Attachments
+                                        <small class="text-muted">(Optional)</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="attachments" class="form-label">
+                                            <i class="fas fa-plus me-1"></i>Add Files
+                                            <small class="text-muted">(Click multiple times to add more files)</small>
+                                        </label>
+                                        <input type="file" class="form-control" id="attachments" name="uploadFiles" multiple
+                                               accept=".docx,.doc,.pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md">
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <strong>Allowed:</strong> Word docs (.docx, .doc), PDFs, Images, Text files
+                                            <br>
+                                            <strong>Max size:</strong> 50MB per file | <strong>Tip:</strong> You can select files multiple times to build a list
+                                        </div>
+                                    </div>
+
+                                    <!-- File Preview Area -->
+                                    <div id="filePreview" class="border rounded p-3" style="display: none; min-height: 100px;">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>Selected Files:</strong>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearFileSelection()">
+                                                <i class="fas fa-times me-1"></i>Clear All
+                                            </button>
+                                        </div>
+                                        <div id="fileList"></div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="d-flex justify-content-between">
                                 <a th:href="@{/notes}" class="btn btn-secondary">
                                     <i class="fas fa-arrow-left me-1"></i>Back to Notes
@@ -123,41 +160,6 @@ Code block
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-
-                <!-- Quick create templates -->
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h6 class="mb-0">Quick Templates</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-warning btn-sm w-100"
-                                        onclick="setTemplate('bookmark')">
-                                    <i class="fas fa-bookmark me-1"></i>Bookmark
-                                </button>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-primary btn-sm w-100"
-                                        onclick="setTemplate('confluence')">
-                                    <i class="fab fa-confluence me-1"></i>Confluence Page
-                                </button>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-dark btn-sm w-100"
-                                        onclick="setTemplate('github')">
-                                    <i class="fab fa-github me-1"></i>GitHub Task
-                                </button>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-info btn-sm w-100"
-                                        onclick="setTemplate('onedrive')">
-                                    <i class="fab fa-microsoft me-1"></i>OneDrive Doc
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -406,6 +408,113 @@ Code block
         }
 
 
+        // File queue management
+        let fileQueue = [];
+
+        // File attachment preview functionality with queue support
+        function handleFileSelection() {
+            const fileInput = document.getElementById('attachments');
+
+            // Add new files to queue
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const file = fileInput.files[i];
+
+                // Check if file already exists in queue
+                const exists = fileQueue.some(queuedFile =>
+                    queuedFile.name === file.name && queuedFile.size === file.size
+                );
+
+                if (!exists) {
+                    fileQueue.push(file);
+                }
+            }
+
+            // Clear the input to allow selecting the same files again
+            fileInput.value = '';
+
+            updateFilePreview();
+            updateFileInput();
+        }
+
+        function updateFilePreview() {
+            const preview = document.getElementById('filePreview');
+            const fileList = document.getElementById('fileList');
+
+            if (fileQueue.length === 0) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            let fileListHtml = '';
+            fileQueue.forEach((file, index) => {
+                const fileSize = formatFileSize(file.size);
+                const fileIcon = getFileIcon(file.type);
+
+                fileListHtml += `
+                    <div class="d-flex align-items-center justify-content-between p-2 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="${fileIcon} fa-lg"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">${file.name}</div>
+                                <small class="text-muted">${fileSize}</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFileFromQueue(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            });
+
+            fileList.innerHTML = fileListHtml;
+            preview.style.display = 'block';
+        }
+
+        function updateFileInput() {
+            // Create a new DataTransfer object to update the file input
+            const fileInput = document.getElementById('attachments');
+            const dt = new DataTransfer();
+
+            fileQueue.forEach(file => {
+                dt.items.add(file);
+            });
+
+            fileInput.files = dt.files;
+        }
+
+        function getFileIcon(mimeType) {
+            if (mimeType.includes('word') || mimeType.includes('document')) {
+                return 'fas fa-file-word text-primary';
+            } else if (mimeType.includes('pdf')) {
+                return 'fas fa-file-pdf text-danger';
+            } else if (mimeType.includes('image')) {
+                return 'fas fa-file-image text-success';
+            } else {
+                return 'fas fa-file text-secondary';
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+            return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+        }
+
+        function clearFileSelection() {
+            fileQueue = [];
+            document.getElementById('attachments').value = '';
+            document.getElementById('filePreview').style.display = 'none';
+        }
+
+        function removeFileFromQueue(index) {
+            fileQueue.splice(index, 1);
+            updateFilePreview();
+            updateFileInput();
+        }
+
         // Auto-search on input
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('noteSearch');
@@ -421,6 +530,12 @@ Code block
                         }
                     }, 300);
                 });
+            }
+
+            // File input change handler
+            const fileInput = document.getElementById('attachments');
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelection);
             }
         });
     </script>

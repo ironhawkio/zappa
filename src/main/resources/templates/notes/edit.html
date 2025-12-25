@@ -18,7 +18,7 @@
                         </h4>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{/notes/{id}/update(id=${note.id})}" method="post" th:object="${note}">
+                        <form th:action="@{/notes/{id}/update(id=${note.id})}" method="post" th:object="${note}" enctype="multipart/form-data">
                             <div class="mb-3">
                                 <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="title" th:field="*{title}"
@@ -112,6 +112,70 @@
                                           th:text="${tag.name}"
                                           onclick="addTag(this.textContent)"
                                           style="cursor: pointer;">tag</span>
+                                </div>
+                            </div>
+
+                            <!-- File Attachments -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-paperclip me-2"></i>File Attachments
+                                        <small class="text-muted">(Optional)</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="attachments" class="form-label">
+                                            <i class="fas fa-plus me-1"></i>Add More Files
+                                            <small class="text-muted">(Click multiple times to add more files)</small>
+                                        </label>
+                                        <input type="file" class="form-control" id="attachments" name="uploadFiles" multiple
+                                               accept=".docx,.doc,.pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md">
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <strong>Allowed:</strong> Word docs (.docx, .doc), PDFs, Images, Text files
+                                            <br>
+                                            <strong>Max size:</strong> 50MB per file | <strong>Tip:</strong> You can select files multiple times to build a list
+                                        </div>
+                                    </div>
+
+                                    <!-- File Preview Area -->
+                                    <div id="filePreview" class="border rounded p-3" style="display: none; min-height: 100px;">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>New Files to Upload:</strong>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearFileSelection()">
+                                                <i class="fas fa-times me-1"></i>Clear All
+                                            </button>
+                                        </div>
+                                        <div id="fileList"></div>
+                                    </div>
+
+                                    <!-- Existing Attachments -->
+                                    <div th:if="${note.hasAttachments()}" class="mt-3">
+                                        <label class="form-label">Current Attachments:</label>
+                                        <div class="border rounded p-2">
+                                            <div th:each="attachment : ${note.attachments}" class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-3">
+                                                        <i th:if="${attachment.isWordDocument()}" class="fas fa-file-word text-primary fa-lg"></i>
+                                                        <i th:if="${attachment.isPdf()}" class="fas fa-file-pdf text-danger fa-lg"></i>
+                                                        <i th:if="${attachment.isImage()}" class="fas fa-file-image text-success fa-lg"></i>
+                                                        <i th:if="${!attachment.isWordDocument() and !attachment.isPdf() and !attachment.isImage()}" class="fas fa-file text-secondary fa-lg"></i>
+                                                    </div>
+                                                    <div>
+                                                        <div class="fw-bold" th:text="${attachment.originalFilename}">filename.docx</div>
+                                                        <small class="text-muted" th:text="${attachment.formattedFileSize}">1.2 MB</small>
+                                                    </div>
+                                                </div>
+                                                <div class="btn-group" role="group">
+                                                    <a th:href="@{/attachments/download/{id}(id=${attachment.id})}"
+                                                       class="btn btn-sm btn-outline-primary" title="Download">
+                                                        <i class="fas fa-download"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -396,7 +460,7 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-success" onclick="createLinkInEdit('${noteId}')">
+                            <button type="button" class="btn btn-success" onclick="createLinkInEdit()" data-target-note-id="${noteId}">
                                 Create Link
                             </button>
                         </div>
@@ -407,6 +471,10 @@
             document.body.appendChild(modal);
             const bsModal = new bootstrap.Modal(modal);
             bsModal.show();
+
+            // Set the target note ID on the button
+            const createButton = modal.querySelector('[data-target-note-id]');
+            createButton.setAttribute('data-target-note-id', noteId);
 
             // Update weight display
             document.getElementById('editLinkWeight').addEventListener('input', function() {
@@ -419,8 +487,11 @@
             });
         }
 
-        function createLinkInEdit(targetNoteId) {
-            const currentNoteId = document.querySelector('form').action.split('/')[2]; // Extract from form action
+        function createLinkInEdit() {
+            // Get current note ID from the page URL instead of form action
+            const currentNoteId = window.location.pathname.split('/')[2]; // Extract from current URL: /notes/{id}/edit
+
+            const targetNoteId = document.querySelector('[data-target-note-id]').getAttribute('data-target-note-id');
             const linkType = document.getElementById('editLinkType').value;
             const weight = document.getElementById('editLinkWeight').value;
 
@@ -447,7 +518,9 @@
 
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.querySelector('.modal'));
-            modal.hide();
+            if (modal) {
+                modal.hide();
+            }
         }
 
         function deleteLink(button) {
@@ -471,6 +544,121 @@
                 });
             }
         }
+
+        // File queue management for edit form
+        let fileQueue = [];
+
+        // File attachment preview functionality with queue support
+        function handleFileSelection() {
+            const fileInput = document.getElementById('attachments');
+
+            // Add new files to queue
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const file = fileInput.files[i];
+
+                // Check if file already exists in queue
+                const exists = fileQueue.some(queuedFile =>
+                    queuedFile.name === file.name && queuedFile.size === file.size
+                );
+
+                if (!exists) {
+                    fileQueue.push(file);
+                }
+            }
+
+            // Clear the input to allow selecting the same files again
+            fileInput.value = '';
+
+            updateFilePreview();
+            updateFileInput();
+        }
+
+        function updateFilePreview() {
+            const preview = document.getElementById('filePreview');
+            const fileList = document.getElementById('fileList');
+
+            if (fileQueue.length === 0) {
+                preview.style.display = 'none';
+                return;
+            }
+
+            let fileListHtml = '';
+            fileQueue.forEach((file, index) => {
+                const fileSize = formatFileSize(file.size);
+                const fileIcon = getFileIcon(file.type);
+
+                fileListHtml += `
+                    <div class="d-flex align-items-center justify-content-between p-2 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="${fileIcon} fa-lg"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">${file.name}</div>
+                                <small class="text-muted">${fileSize}</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFileFromQueue(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            });
+
+            fileList.innerHTML = fileListHtml;
+            preview.style.display = 'block';
+        }
+
+        function updateFileInput() {
+            // Create a new DataTransfer object to update the file input
+            const fileInput = document.getElementById('attachments');
+            const dt = new DataTransfer();
+
+            fileQueue.forEach(file => {
+                dt.items.add(file);
+            });
+
+            fileInput.files = dt.files;
+        }
+
+        function getFileIcon(mimeType) {
+            if (mimeType.includes('word') || mimeType.includes('document')) {
+                return 'fas fa-file-word text-primary';
+            } else if (mimeType.includes('pdf')) {
+                return 'fas fa-file-pdf text-danger';
+            } else if (mimeType.includes('image')) {
+                return 'fas fa-file-image text-success';
+            } else {
+                return 'fas fa-file text-secondary';
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+            return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+        }
+
+        function clearFileSelection() {
+            fileQueue = [];
+            document.getElementById('attachments').value = '';
+            document.getElementById('filePreview').style.display = 'none';
+        }
+
+        function removeFileFromQueue(index) {
+            fileQueue.splice(index, 1);
+            updateFilePreview();
+            updateFileInput();
+        }
+
+        // Initialize file input handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('attachments');
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelection);
+            }
+        });
 
     </script>
 </body>

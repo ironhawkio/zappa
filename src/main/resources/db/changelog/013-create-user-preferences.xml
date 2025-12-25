@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="create-user-preferences-table" author="system">
+        <comment>Create user_preferences table for storing user's graph positions</comment>
+
+        <createTable tableName="user_preferences">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" unique="true"/>
+            </column>
+
+            <column name="graph_positions" type="JSONB">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Add foreign key constraint to users table -->
+        <addForeignKeyConstraint
+            baseTableName="user_preferences"
+            baseColumnNames="user_id"
+            referencedTableName="users"
+            referencedColumnNames="id"
+            constraintName="fk_user_preferences_user_id"/>
+
+        <!-- Add index for performance -->
+        <createIndex indexName="idx_user_preferences_user_id" tableName="user_preferences">
+            <column name="user_id"/>
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>

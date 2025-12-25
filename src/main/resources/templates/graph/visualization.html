@@ -25,6 +25,12 @@
                         <button class="btn btn-outline-info" onclick="toggleLabels()">
                             <i class="fas fa-eye me-1"></i>Toggle Labels
                         </button>
+                        <button id="savePositionsBtn" class="btn btn-outline-warning" onclick="savePositions()" disabled>
+                            <i class="fas fa-save me-1"></i>Positions Saved
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="resetPositions()">
+                            <i class="fas fa-undo me-1"></i>Reset Layout
+                        </button>
                     </div>
                 </div>
 
@@ -70,6 +76,47 @@
                                                 <strong>Global Graph</strong>
                                                 <span th:text="'(' + ${totalNodes} + ' nodes, ' + ${totalLinks} + ' links)'">Graph</span>
                                             </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tag Filtering -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body py-2">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-center">
+                                            <label class="form-label me-3 mb-0">
+                                                <i class="fas fa-tags me-1"></i>Filter by Tags:
+                                            </label>
+                                            <input type="text" class="form-control form-control-sm me-3"
+                                                   id="tagInput" placeholder="Enter tags (comma-separated)"
+                                                   th:value="${selectedTags}">
+                                            <select class="form-select form-select-sm me-3" id="tagFilterType" style="max-width: 120px;">
+                                                <option value="any" th:selected="${tagFilter == 'any'}">Any Tags</option>
+                                                <option value="all" th:selected="${tagFilter == 'all'}">All Tags</option>
+                                            </select>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="applyTagFilter()">
+                                                <i class="fas fa-filter me-1"></i>Apply
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <small class="text-muted me-2">Quick tags:</small>
+                                            <span th:each="tag : ${allTags}"
+                                                  th:if="${tagStat.count <= 8}"
+                                                  class="badge bg-secondary"
+                                                  style="cursor: pointer;"
+                                                  th:onclick="'addQuickTag(\'' + ${tag.name} + '\')'">
+                                                <span th:text="${tag.name}">Tag</span>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -127,7 +174,7 @@
                     </div>
                     <div class="card-body p-0">
                         <div id="graph-container" style="height: 600px; background: #f8f9fa;">
-                            <svg id="graph-svg" width="100%" height="100%"></svg>
+                            <!-- Cytoscape.js will create its canvas here -->
                         </div>
                     </div>
                 </div>
@@ -271,15 +318,15 @@
     <div th:replace="~{fragments/layout :: scripts}"></div>
 
     <!-- D3.js -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
 
     <script>
-        // Graph visualization with D3.js
+        // Graph visualization with Cytoscape.js
+        let cy = null;
         let graphData = null;
-        let svg = null;
-        let simulation = null;
         let selectedNodes = [];
         let showLabels = true;
+        let positionsModified = false;
 
         // Weight-based color function
         function getLinkColor(weight) {
@@ -296,29 +343,170 @@
 
         function initializeGraph() {
             const container = document.getElementById('graph-container');
-            const width = container.clientWidth;
-            const height = container.clientHeight;
 
-            svg = d3.select('#graph-svg')
-                .attr('width', width)
-                .attr('height', height);
+            cy = cytoscape({
+                container: container,
+                style: [
+                    // Node styles
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': 'data(color)',
+                            'width': 'data(size)',
+                            'height': 'data(size)',
+                            'label': 'data(title)',
+                            'text-valign': 'bottom',
+                            'text-halign': 'center',
+                            'font-size': '12px',
+                            'color': '#333',
+                            'text-background-color': 'white',
+                            'text-background-opacity': 0.8,
+                            'text-background-padding': '2px',
+                            'border-width': 2,
+                            'border-color': '#fff'
+                        }
+                    },
+                    // Edge styles
+                    {
+                        selector: 'edge',
+                        style: {
+                            'line-color': 'data(color)',
+                            'width': 'data(width)',
+                            'opacity': 0.8,
+                            'curve-style': 'bezier',
+                            'target-arrow-shape': 'triangle',
+                            'target-arrow-color': 'data(color)'
+                        }
+                    },
+                    // Selected node styles
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'border-color': '#dc3545',
+                            'border-width': 4
+                        }
+                    },
+                    // Highlighted styles
+                    {
+                        selector: '.highlighted',
+                        style: {
+                            'opacity': 1
+                        }
+                    },
+                    {
+                        selector: '.dimmed',
+                        style: {
+                            'opacity': 0.3
+                        }
+                    },
+                    // Path highlight styles
+                    {
+                        selector: '.path-highlight',
+                        style: {
+                            'line-color': '#ff6b6b',
+                            'target-arrow-color': '#ff6b6b',
+                            'width': 6,
+                            'opacity': 1
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    animate: true,
+                    animationDuration: 1000,
+                    fit: true,
+                    padding: 50,
+                    nodeOverlap: 20,
+                    idealEdgeLength: 100,
+                    edgeElasticity: 100,
+                    nestingFactor: 5,
+                    gravity: 80,
+                    numIter: 1000,
+                    initialTemp: 200,
+                    coolingFactor: 0.95,
+                    minTemp: 1.0
+                }
+            });
 
-            // Add zoom behavior
-            const zoom = d3.zoom()
-                .scaleExtent([0.1, 4])
-                .on('zoom', (event) => {
-                    svg.select('.graph-group').attr('transform', event.transform);
-                });
+            // Add event listeners
+            setupCytoscapeEvents();
+        }
 
-            svg.call(zoom);
+        function setupCytoscapeEvents() {
+            // Node click event
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                const nodeId = node.id();
 
-            // Create main group for graph elements
-            svg.append('g').attr('class', 'graph-group');
+                // Toggle selection
+                if (selectedNodes.includes(nodeId)) {
+                    selectedNodes = selectedNodes.filter(id => id !== nodeId);
+                    node.unselect();
+                } else {
+                    selectedNodes.push(nodeId);
+                    if (selectedNodes.length > 2) {
+                        const oldNode = cy.getElementById(selectedNodes.shift());
+                        oldNode.unselect();
+                    }
+                    node.select();
+                }
+
+                loadNodeDetails(nodeId);
+                updateSelectedCount();
+            });
+
+            // Node hover effects
+            cy.on('mouseover', 'node', function(evt) {
+                const node = evt.target;
+                const connectedEdges = node.connectedEdges();
+                const connectedNodes = connectedEdges.connectedNodes();
+
+                // Dim all elements
+                cy.elements().addClass('dimmed');
+
+                // Highlight connected elements
+                node.removeClass('dimmed').addClass('highlighted');
+                connectedNodes.removeClass('dimmed').addClass('highlighted');
+                connectedEdges.removeClass('dimmed').addClass('highlighted');
+
+                document.getElementById('connectedNodes').textContent = connectedNodes.length;
+            });
+
+            cy.on('mouseout', 'node', function(evt) {
+                cy.elements().removeClass('dimmed highlighted');
+                document.getElementById('connectedNodes').textContent = '0';
+            });
+
+            // Edge hover effects
+            cy.on('mouseover', 'edge', function(evt) {
+                const edge = evt.target;
+                edge.style('width', Math.max(6, edge.data('width') * 1.5));
+            });
+
+            cy.on('mouseout', 'edge', function(evt) {
+                const edge = evt.target;
+                edge.style('width', edge.data('width'));
+            });
+
+            // Track position changes
+            cy.on('position', 'node', function(evt) {
+                positionsModified = true;
+                updateSaveButtonState();
+            });
+
+            cy.on('free', 'node', function(evt) {
+                // Auto-save positions after drag ends
+                if (positionsModified) {
+                    savePositions();
+                }
+            });
         }
 
         function loadGraphData() {
             const groupId = getSelectedGroupId();
             const includeSubGroups = getIncludeSubGroups();
+            const tags = getSelectedTags();
+            const tagFilter = getTagFilterType();
 
             let url = '/graph/data';
             const params = new URLSearchParams();
@@ -326,6 +514,11 @@
             if (groupId) {
                 params.append('group', groupId);
                 params.append('includeSubGroups', includeSubGroups);
+            }
+
+            if (tags) {
+                params.append('tags', tags);
+                params.append('tagFilter', tagFilter);
             }
 
             if (params.toString()) {
@@ -354,6 +547,64 @@
             return checkbox ? checkbox.checked : false;
         }
 
+        function getSelectedTags() {
+            const input = document.getElementById('tagInput');
+            return input ? input.value.trim() : '';
+        }
+
+        function getTagFilterType() {
+            const select = document.getElementById('tagFilterType');
+            return select ? select.value : 'any';
+        }
+
+        function applyTagFilter() {
+            const groupId = getSelectedGroupId();
+            const includeSubGroups = getIncludeSubGroups();
+            const tags = getSelectedTags();
+            const tagFilter = getTagFilterType();
+
+            // Update URL to reflect current selection
+            const url = new URL(window.location);
+
+            if (groupId) {
+                url.searchParams.set('group', groupId);
+                url.searchParams.set('includeSubGroups', includeSubGroups);
+            } else {
+                url.searchParams.delete('group');
+                url.searchParams.delete('includeSubGroups');
+            }
+
+            if (tags) {
+                url.searchParams.set('tags', tags);
+                url.searchParams.set('tagFilter', tagFilter);
+            } else {
+                url.searchParams.delete('tags');
+                url.searchParams.delete('tagFilter');
+            }
+
+            // Update URL without page reload
+            window.history.pushState({}, '', url);
+
+            // Reload graph data
+            loadGraphData();
+        }
+
+        function addQuickTag(tagName) {
+            const tagInput = document.getElementById('tagInput');
+            const currentTags = tagInput.value.trim();
+
+            if (currentTags) {
+                const tagList = currentTags.split(',').map(t => t.trim());
+                if (!tagList.includes(tagName)) {
+                    tagInput.value = currentTags + ', ' + tagName;
+                }
+            } else {
+                tagInput.value = tagName;
+            }
+
+            applyTagFilter();
+        }
+
         function changeGraphGroup() {
             const groupId = getSelectedGroupId();
             const includeSubGroups = getIncludeSubGroups();
@@ -376,120 +627,246 @@
         }
 
         function renderGraph() {
-            if (!graphData) return;
+            if (!graphData || !cy) return;
 
-            const width = document.getElementById('graph-container').clientWidth;
-            const height = document.getElementById('graph-container').clientHeight;
+            // Convert D3 format to Cytoscape format
+            const elements = [];
 
-            // Clear existing graph
-            svg.select('.graph-group').selectAll('*').remove();
-
-            const g = svg.select('.graph-group');
-
-            // Create force simulation
-            simulation = d3.forceSimulation(graphData.nodes)
-                .force('link', d3.forceLink(graphData.links)
-                    .id(d => d.id)
-                    .distance(d => 100 - (d.weight * 8)) // Closer for higher weight
-                    .strength(d => d.weight / 10))
-                .force('charge', d3.forceManyBody().strength(-300))
-                .force('center', d3.forceCenter(width / 2, height / 2))
-                .force('collision', d3.forceCollide().radius(d => d.size + 5));
-
-            // Create links (no directional arrows)
-            const links = g.append('g')
-                .attr('class', 'links')
-                .selectAll('line')
-                .data(graphData.links)
-                .enter().append('line')
-                .attr('stroke', d => getLinkColor(d.weight))
-                .attr('stroke-opacity', d => 0.8)
-                .attr('stroke-width', d => Math.max(2, d.weight / 2))
-                .style('cursor', 'pointer')
-                .on('mouseover', linkMouseOver)
-                .on('mouseout', linkMouseOut);
-
-            // Create nodes
-            const nodes = g.append('g')
-                .attr('class', 'nodes')
-                .selectAll('circle')
-                .data(graphData.nodes)
-                .enter().append('circle')
-                .attr('r', d => d.size)
-                .attr('fill', d => d.color)
-                .attr('stroke', '#fff')
-                .attr('stroke-width', 2)
-                .style('cursor', 'pointer')
-                .call(d3.drag()
-                    .on('start', dragStarted)
-                    .on('drag', dragged)
-                    .on('end', dragEnded))
-                .on('click', nodeClicked)
-                .on('mouseover', nodeMouseOver)
-                .on('mouseout', nodeMouseOut);
-
-            // Create labels
-            const labels = g.append('g')
-                .attr('class', 'labels')
-                .selectAll('text')
-                .data(graphData.nodes)
-                .enter().append('text')
-                .text(d => d.title)
-                .attr('font-size', '12px')
-                .attr('font-family', 'Arial, sans-serif')
-                .attr('text-anchor', 'middle')
-                .attr('dy', -5)
-                .style('pointer-events', 'none')
-                .style('display', showLabels ? 'block' : 'none');
-
-            // Update positions on each tick
-            simulation.on('tick', () => {
-                links
-                    .attr('x1', d => d.source.x)
-                    .attr('y1', d => d.source.y)
-                    .attr('x2', d => d.target.x)
-                    .attr('y2', d => d.target.y);
-
-                nodes
-                    .attr('cx', d => d.x)
-                    .attr('cy', d => d.y);
-
-                labels
-                    .attr('x', d => d.x)
-                    .attr('y', d => d.y);
+            // Add nodes
+            graphData.nodes.forEach(node => {
+                elements.push({
+                    data: {
+                        id: node.id,
+                        title: node.title,
+                        color: node.color,
+                        size: node.size * 2, // Cytoscape sizes work differently
+                        linkCount: node.linkCount
+                    }
+                });
             });
 
-            // Add tooltips to nodes
-            nodes.append('title')
-                .text(d => `${d.title}\nConnections: ${d.linkCount}`);
+            // Add edges
+            graphData.links.forEach(link => {
+                elements.push({
+                    data: {
+                        id: `${link.source.id || link.source}-${link.target.id || link.target}`,
+                        source: link.source.id || link.source,
+                        target: link.target.id || link.target,
+                        color: getLinkColor(link.weight),
+                        width: Math.max(2, link.weight / 2),
+                        weight: link.weight,
+                        type: link.type
+                    }
+                });
+            });
 
-            // Add tooltips to links
-            links.append('title')
-                .text(d => `${d.type}\nWeight: ${d.weight}/10\n${d.source.title} → ${d.target.title}`);
+            // Update graph with new data
+            cy.elements().remove();
+            cy.add(elements);
+
+            // Run layout
+            const layout = cy.layout({
+                name: 'cose',
+                animate: true,
+                animationDuration: 1000,
+                fit: true,
+                padding: 50,
+                idealEdgeLength: 100,
+                nodeOverlap: 20
+            });
+
+            layout.run();
+
+            // Reset selections
+            selectedNodes = [];
+            updateSelectedCount();
+
+            // Load saved positions after layout
+            layout.on('layoutstop', function() {
+                loadSavedPositions();
+            });
         }
 
-        function nodeClicked(event, d) {
-            event.stopPropagation();
+        // Hybrid storage: localStorage + server API
+        let serverSaveTimeout = null;
 
-            // Toggle selection
-            if (selectedNodes.includes(d.id)) {
-                selectedNodes = selectedNodes.filter(id => id !== d.id);
-            } else {
-                selectedNodes.push(d.id);
-                if (selectedNodes.length > 2) {
-                    selectedNodes.shift(); // Keep only last 2 selections
+        function savePositions() {
+            if (!cy) return;
+
+            const positions = {};
+            cy.nodes().forEach(node => {
+                const pos = node.position();
+                positions[node.id()] = { x: pos.x, y: pos.y };
+            });
+
+            const groupKey = getSelectedGroupId() || 'global';
+
+            // 1. Immediate save to localStorage (fast)
+            const storageKey = `graph-positions-${groupKey}`;
+            const positionData = {
+                positions: positions,
+                timestamp: Date.now(),
+                groupKey: groupKey
+            };
+            localStorage.setItem(storageKey, JSON.stringify(positionData));
+
+            // 2. Debounced save to server (background)
+            clearTimeout(serverSaveTimeout);
+            serverSaveTimeout = setTimeout(() => {
+                saveToServer(groupKey, positions);
+            }, 2000); // Wait 2 seconds before saving to server
+
+            positionsModified = false;
+            updateSaveButtonState();
+
+            // Show temporary success message
+            showToast('Positions saved locally!', 'success');
+        }
+
+        async function saveToServer(groupKey, positions) {
+            try {
+                const response = await fetch(`/api/graph/positions/${groupKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(positions)
+                });
+
+                if (response.ok) {
+                    showToast('Positions synced to server!', 'info');
+                } else {
+                    console.warn('Failed to save positions to server:', response.status);
+                }
+            } catch (error) {
+                console.warn('Server save failed (offline?):', error);
+            }
+        }
+
+        async function loadSavedPositions() {
+            if (!cy) return;
+
+            const groupKey = getSelectedGroupId() || 'global';
+            const storageKey = `graph-positions-${groupKey}`;
+
+            // 1. Try localStorage first (instant)
+            const localData = localStorage.getItem(storageKey);
+            let localPositions = null;
+            let localTimestamp = 0;
+
+            if (localData) {
+                try {
+                    const parsed = JSON.parse(localData);
+                    localPositions = parsed.positions || parsed; // Support old format
+                    localTimestamp = parsed.timestamp || 0;
+
+                    // Apply local positions immediately
+                    applyPositions(localPositions);
+                    console.log('Applied local positions');
+                } catch (e) {
+                    console.warn('Failed to load local positions:', e);
                 }
             }
 
-            updateNodeSelection();
-            loadNodeDetails(d.id);
-            updateSelectedCount();
+            // 2. Load from server and merge (background)
+            try {
+                const response = await fetch(`/api/graph/positions/${groupKey}`);
+                if (response.ok) {
+                    const serverPositions = await response.json();
+
+                    // Use server positions if local is missing or server is newer
+                    if (!localPositions || Object.keys(serverPositions).length > 0) {
+                        applyPositions(serverPositions);
+
+                        // Update localStorage with server data
+                        const positionData = {
+                            positions: serverPositions,
+                            timestamp: Date.now(),
+                            groupKey: groupKey
+                        };
+                        localStorage.setItem(storageKey, JSON.stringify(positionData));
+
+                        console.log('Applied server positions and synced to localStorage');
+                    }
+                }
+            } catch (error) {
+                console.log('Server load failed (using local positions):', error);
+            }
         }
 
-        function updateNodeSelection() {
-            svg.selectAll('circle')
-                .attr('stroke', d => selectedNodes.includes(d.id) ? '#dc3545' : '#fff')
-                .attr('stroke-width', d => selectedNodes.includes(d.id) ? 4 : 2);
+        function applyPositions(positions) {
+            if (!positions || !cy) return;
+
+            cy.nodes().forEach(node => {
+                const nodeId = node.id();
+                if (positions[nodeId]) {
+                    node.position(positions[nodeId]);
+                }
+            });
+        }
+
+        async function resetPositions() {
+            const groupKey = getSelectedGroupId() || 'global';
+            const storageKey = `graph-positions-${groupKey}`;
+
+            // Clear localStorage
+            localStorage.removeItem(storageKey);
+
+            // Clear server storage
+            try {
+                await fetch(`/api/graph/positions/${groupKey}`, {
+                    method: 'DELETE'
+                });
+                console.log('Cleared server positions');
+            } catch (error) {
+                console.warn('Failed to clear server positions:', error);
+            }
+
+            positionsModified = false;
+            updateSaveButtonState();
+
+            // Re-run layout
+            const layout = cy.layout({
+                name: 'cose',
+                animate: true,
+                animationDuration: 1000,
+                fit: true,
+                padding: 50
+            });
+            layout.run();
+
+            showToast('Positions reset to automatic layout', 'info');
+        }
+
+        function updateSaveButtonState() {
+            const saveBtn = document.getElementById('savePositionsBtn');
+            if (saveBtn) {
+                saveBtn.disabled = !positionsModified;
+                saveBtn.textContent = positionsModified ? 'Save Positions' : 'Positions Saved';
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            // Simple toast notification
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} position-fixed`;
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+            toast.innerHTML = `
+                <i class="fas fa-info-circle me-2"></i>${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+            `;
+            document.body.appendChild(toast);
+
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 3000);
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedNode').textContent = selectedNodes.length;
         }
 
         function loadNodeDetails(nodeId) {
@@ -535,117 +912,71 @@
             document.getElementById('selectedNode').textContent = selectedNodes.length;
         }
 
-        function nodeMouseOver(event, d) {
-            // Highlight connected nodes
-            const connectedNodeIds = new Set();
-            graphData.links.forEach(link => {
-                if (link.source.id === d.id) connectedNodeIds.add(link.target.id);
-                if (link.target.id === d.id) connectedNodeIds.add(link.source.id);
-            });
-
-            svg.selectAll('circle')
-                .style('opacity', node =>
-                    node.id === d.id || connectedNodeIds.has(node.id) ? 1 : 0.3);
-
-            svg.selectAll('line')
-                .style('opacity', link =>
-                    link.source.id === d.id || link.target.id === d.id ? 1 : 0.1);
-
-            document.getElementById('connectedNodes').textContent = connectedNodeIds.size;
-        }
-
-        function nodeMouseOut(event, d) {
-            svg.selectAll('circle').style('opacity', 1);
-            svg.selectAll('line').style('opacity', 0.8);
-            document.getElementById('connectedNodes').textContent = '0';
-        }
-
-        function linkMouseOver(event, d) {
-            // Highlight the link
-            d3.select(event.target)
-                .attr('stroke-width', Math.max(4, d.weight / 1.5))
-                .style('opacity', 1);
-
-            // Show tooltip with link details
-            const tooltip = d3.select('body').append('div')
-                .attr('class', 'link-tooltip')
-                .style('position', 'absolute')
-                .style('background', 'rgba(0,0,0,0.8)')
-                .style('color', 'white')
-                .style('padding', '8px 12px')
-                .style('border-radius', '4px')
-                .style('font-size', '12px')
-                .style('pointer-events', 'none')
-                .style('z-index', '1000')
-                .html(`
-                    <strong>${d.type}</strong><br>
-                    Weight: ${d.weight}/10<br>
-                    ${d.source.title} → ${d.target.title}
-                `)
-                .style('left', (event.pageX + 10) + 'px')
-                .style('top', (event.pageY - 10) + 'px');
-        }
-
-        function linkMouseOut(event, d) {
-            // Reset link appearance
-            d3.select(event.target)
-                .attr('stroke-width', Math.max(2, d.weight / 2))
-                .style('opacity', 0.8);
-
-            // Remove tooltip
-            d3.selectAll('.link-tooltip').remove();
-        }
-
-        function dragStarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-
-        function dragEnded(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
-
         function resetGraph() {
+            if (!cy) return;
             selectedNodes = [];
-            updateNodeSelection();
+            cy.elements().unselect();
+            cy.elements().removeClass('dimmed highlighted');
             updateSelectedCount();
-            simulation.alpha(1).restart();
+            cy.fit();
         }
 
         function highlightHubs() {
+            if (!cy || !graphData) return;
             const maxConnections = Math.max(...graphData.nodes.map(n => n.linkCount));
-            svg.selectAll('circle')
-                .transition()
-                .duration(500)
-                .attr('stroke', d => d.linkCount >= maxConnections * 0.7 ? '#ffc107' : '#fff')
-                .attr('stroke-width', d => d.linkCount >= maxConnections * 0.7 ? 6 : 2);
+            const threshold = maxConnections * 0.7;
+
+            cy.nodes().forEach(node => {
+                const linkCount = node.data('linkCount');
+                if (linkCount >= threshold) {
+                    node.style({
+                        'border-color': '#ffc107',
+                        'border-width': 6
+                    });
+                } else {
+                    node.style({
+                        'border-color': '#fff',
+                        'border-width': 2
+                    });
+                }
+            });
         }
 
         function toggleLabels() {
+            if (!cy) return;
             showLabels = !showLabels;
-            svg.selectAll('.labels text')
-                .style('display', showLabels ? 'block' : 'none');
+            if (showLabels) {
+                cy.style().selector('node').style('label', 'data(title)').update();
+            } else {
+                cy.style().selector('node').style('label', '').update();
+            }
         }
 
 
         function filterByLinkType() {
+            if (!cy) return;
             const linkType = document.getElementById('linkTypeFilter').value;
-            svg.selectAll('line')
-                .style('opacity', d => !linkType || d.type === linkType ? d.opacity : 0.1);
+
+            cy.edges().forEach(edge => {
+                if (!linkType || edge.data('type') === linkType) {
+                    edge.style('opacity', 0.8);
+                } else {
+                    edge.style('opacity', 0.1);
+                }
+            });
         }
 
         function filterByWeight(value) {
+            if (!cy) return;
             document.getElementById('weightValue').textContent = value;
-            svg.selectAll('line')
-                .style('opacity', d => d.weight >= value ? d.opacity : 0.1);
+
+            cy.edges().forEach(edge => {
+                if (edge.data('weight') >= value) {
+                    edge.style('opacity', 0.8);
+                } else {
+                    edge.style('opacity', 0.1);
+                }
+            });
         }
 
         function findShortestPath() {
@@ -657,18 +988,21 @@
             const modal = new bootstrap.Modal(document.getElementById('pathModal'));
             modal.show();
 
-            // Implementation would go here for shortest path visualization
+            // Find shortest path using Cytoscape's built-in algorithm
+            const node1 = cy.getElementById(selectedNodes[0]);
+            const node2 = cy.getElementById(selectedNodes[1]);
+            const path = cy.elements().dijkstra(node1, function(edge) {
+                return edge.data('weight');
+            }).pathTo(node2);
+
+            // Highlight the path
+            cy.elements().removeClass('path-highlight');
+            path.addClass('path-highlight');
         }
 
         function centerGraph() {
-            const transform = d3.zoomIdentity.translate(
-                document.getElementById('graph-container').clientWidth / 2,
-                document.getElementById('graph-container').clientHeight / 2
-            ).scale(1);
-
-            svg.transition().duration(750).call(
-                d3.zoom().transform, transform
-            );
+            if (!cy) return;
+            cy.fit(null, 50);
         }
 
         function showStats() {
@@ -680,16 +1014,20 @@
         }
 
         function exportGraph() {
-            const svgData = new XMLSerializer().serializeToString(document.getElementById('graph-svg'));
-            const blob = new Blob([svgData], {type: 'image/svg+xml'});
-            const url = URL.createObjectURL(blob);
+            if (!cy) return;
+
+            // Export as PNG using Cytoscape's built-in export
+            const png64 = cy.png({
+                output: 'blob',
+                bg: 'white',
+                full: true,
+                scale: 2
+            });
 
             const a = document.createElement('a');
-            a.href = url;
-            a.download = 'knowledge-graph.svg';
+            a.href = URL.createObjectURL(png64);
+            a.download = 'knowledge-graph.png';
             a.click();
-
-            URL.revokeObjectURL(url);
         }
 
         function showError(message) {
@@ -710,15 +1048,26 @@
 
         // Handle window resize
         window.addEventListener('resize', function() {
-            const container = document.getElementById('graph-container');
-            const width = container.clientWidth;
-            const height = container.clientHeight;
+            if (cy) {
+                cy.resize();
+                cy.fit();
+            }
+        });
 
-            svg.attr('width', width).attr('height', height);
+        // Sync to server on page unload
+        window.addEventListener('beforeunload', function() {
+            if (positionsModified && cy) {
+                const positions = {};
+                cy.nodes().forEach(node => {
+                    const pos = node.position();
+                    positions[node.id()] = { x: pos.x, y: pos.y };
+                });
 
-            if (simulation) {
-                simulation.force('center', d3.forceCenter(width / 2, height / 2));
-                simulation.alpha(0.3).restart();
+                const groupKey = getSelectedGroupId() || 'global';
+
+                // Synchronous save for page unload
+                navigator.sendBeacon(`/api/graph/positions/${groupKey}`,
+                    JSON.stringify(positions));
             }
         });
     </script>

@@ -37,17 +37,58 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" th:href="@{/graph}">
-                        <i class="fas fa-project-diagram me-1"></i>Graph
+                    <a class="nav-link" th:href="@{/groups}">
+                        <i class="fas fa-layer-group me-1"></i>Groups
                     </a>
                 </li>
+                <li class="nav-item dropdown" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-cog me-1"></i>Admin
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" th:href="@{/admin/users}">
+                            <i class="fas fa-users me-1"></i>User Management
+                        </a></li>
+                    </ul>
+                </li>
+<!--                <li class="nav-item">-->
+<!--                    <a class="nav-link" th:href="@{/graph}">-->
+<!--                        <i class="fas fa-project-diagram me-1"></i>Graph-->
+<!--                    </a>-->
+<!--                </li>-->
             </ul>
 
-            <form class="d-flex" th:action="@{/notes}" method="get">
+            <form class="d-flex me-3" th:action="@{/notes}" method="get">
                 <input class="form-control me-2" type="search" name="search" placeholder="Search notes...">
                 <button class="btn btn-outline-light" type="submit">
                     <i class="fas fa-search"></i>
                 </button>
+            </form>
+
+            <!-- User Info and Logout -->
+            <div class="navbar-nav">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle text-light" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user me-1"></i>
+                        <span sec:authentication="principal.username">User</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">
+                            <span sec:authentication="principal.fullName">Full Name</span>
+                        </h6></li>
+                        <li><small class="dropdown-item-text text-muted">
+                            <span sec:authentication="principal.email">email@example.com</span>
+                        </small></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="document.getElementById('logoutForm').submit();">
+                            <i class="fas fa-sign-out-alt me-1"></i>Logout
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Hidden Logout Form -->
+            <form id="logoutForm" th:action="@{/logout}" method="post" style="display: none;">
             </form>
         </div>
     </div>

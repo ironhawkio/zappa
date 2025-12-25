@@ -1,25 +1,38 @@
+server:
+  port: ${SERVER_PORT:6886}
+
 spring:
   application:
-    name: zappa
+    name: ${SPRING_APPLICATION_NAME:zappa}
   datasource:
-    url: jdbc:postgresql://localhost:5432/zappa
-    username: zappa_user
-    password: zappa_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/zappa}
+    username: ${SPRING_DATASOURCE_USERNAME:zappa_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:zappa_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: none
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:none}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${SPRING_JPA_HIBERNATE_FORMAT_SQL:true}
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           time_zone: UTC
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
-    enabled: true
-    drop-first: false
+    enabled: ${SPRING_LIQUIBASE_ENABLED:true}
+    drop-first: ${SPRING_LIQUIBASE_DROP_FIRST:false}
   thymeleaf:
-    cache: false
+    cache: ${SPRING_THYMELEAF_CACHE:false}
     mode: HTML
+  servlet:
+    multipart:
+      enabled: ${SPRING_SERVLET_MULTIPART_ENABLED:true}
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:50MB}
+
+# Application configuration
+app:
+  upload:
+    dir: ${APP_UPLOAD_DIR:uploads}

@@ -16,9 +16,8 @@
                         <i class="fas fa-sticky-note text-primary me-3"></i>
                         Welcome to Zappa Notes
                     </h1>
-                    <p class="lead">Centralized note management for all your technical knowledge</p>
                     <hr class="my-4">
-                    <p>Manage notes from bookmarks, Confluence pages, GitHub tasks, OneDrive documents, and more!</p>
+                    <p>Centralized note management for all your technical knowledge</p>
                     <a class="btn btn-primary btn-lg" th:href="@{/notes/new}" role="button">
                         <i class="fas fa-plus me-2"></i>Create Your First Note
                     </a>
@@ -237,6 +236,21 @@
 
                 card.addEventListener('mouseup', function() {
                     this.style.transform = 'translateY(-5px)';
+                });
+
+                // Navigate to group notes on click
+                card.addEventListener('click', function(e) {
+                    // Don't navigate if clicking on buttons in footer
+                    if (!e.target.closest('.card-footer')) {
+                        const groupLink = this.querySelector('a[href*="group="]');
+                        if (groupLink) {
+                            const match = groupLink.href.match(/group=([^&]+)/);
+                            if (match) {
+                                const groupId = match[1];
+                                window.location.href = `/notes?group=${groupId}`;
+                            }
+                        }
+                    }
                 });
             });
         });

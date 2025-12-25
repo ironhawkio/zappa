@@ -1,5 +1,6 @@
 package io.ironhawk.zappa.module.notemgmt.entity;
 
+import io.ironhawk.zappa.security.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -33,6 +34,10 @@ public class Note {
     @JoinColumn(name = "group_id")
     private Group group;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,6 +59,11 @@ public class Note {
     @OneToMany(mappedBy = "targetNote", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<NoteLink> incomingLinks = new HashSet<>();
+
+    // File attachments
+    @OneToMany(mappedBy = "note", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<NoteAttachment> attachments = new HashSet<>();
 
     public static Note of(String title, String content) {
         return Note.builder()
@@ -103,5 +113,32 @@ public class Note {
 
     public boolean isOrphaned() {
         return outgoingLinks.isEmpty() && incomingLinks.isEmpty();
+    }
+
+    // Attachment utility methods
+    public boolean hasAttachments() {
+        return !attachments.isEmpty();
+    }
+
+    public int getAttachmentCount() {
+        return attachments.size();
+    }
+
+    public boolean hasWordDocuments() {
+        return attachments.stream().anyMatch(NoteAttachment::isWordDocument);
+    }
+
+    public boolean hasPdfDocuments() {
+        return attachments.stream().anyMatch(NoteAttachment::isPdf);
+    }
+
+    public boolean hasImages() {
+        return attachments.stream().anyMatch(NoteAttachment::isImage);
+    }
+
+    public long getTotalAttachmentSize() {
+        return attachments.stream()
+            .mapToLong(attachment -> attachment.getFileSize() != null ? attachment.getFileSize() : 0L)
+            .sum();
     }
 }

@@ -2,6 +2,7 @@ package io.ironhawk.zappa.module.notemgmt.repository;
 
 import io.ironhawk.zappa.module.notemgmt.entity.Group;
 import io.ironhawk.zappa.module.notemgmt.entity.Note;
+import io.ironhawk.zappa.security.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,32 +17,42 @@ import java.util.UUID;
 @Repository
 public interface NoteRepository extends JpaRepository<Note, UUID> {
 
-    // Find notes by title (case-insensitive)
-    List<Note> findByTitleContainingIgnoreCase(String title);
+    // User-specific note queries
+    List<Note> findByUserOrderByCreatedAtDesc(User user);
+    Page<Note> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+    Optional<Note> findByIdAndUser(UUID id, User user);
 
-    // Find notes by content containing keyword
-    List<Note> findByContentContainingIgnoreCase(String keyword);
+    // Find notes by title (case-insensitive) for specific user
+    List<Note> findByUserAndTitleContainingIgnoreCase(User user, String title);
 
-    // Find notes with pagination
-    Page<Note> findByTitleContainingIgnoreCase(String title, Pageable pageable);
+    // Find notes by content containing keyword for specific user
+    List<Note> findByUserAndContentContainingIgnoreCase(User user, String keyword);
 
-    // Find notes by tag name
-    @Query("SELECT DISTINCT n FROM Note n JOIN n.noteTags nt JOIN nt.tag t WHERE t.name = :tagName")
-    List<Note> findByTagName(@Param("tagName") String tagName);
+    // Find notes with pagination for specific user
+    Page<Note> findByUserAndTitleContainingIgnoreCase(User user, String title, Pageable pageable);
 
-    // Find notes by multiple tag names
-    @Query("SELECT DISTINCT n FROM Note n JOIN n.noteTags nt JOIN nt.tag t WHERE t.name IN :tagNames")
-    List<Note> findByTagNames(@Param("tagNames") List<String> tagNames);
+    // Find notes by tag name for specific user
+    @Query("SELECT DISTINCT n FROM Note n JOIN n.noteTags nt JOIN nt.tag t WHERE n.user = :user AND t.name = :tagName")
+    List<Note> findByUserAndTagName(@Param("user") User user, @Param("tagName") String tagName);
 
-    // Find notes with eager loading of tags
-    @Query("SELECT DISTINCT n FROM Note n LEFT JOIN FETCH n.noteTags nt LEFT JOIN FETCH nt.tag WHERE n.id = :id")
-    Optional<Note> findByIdWithTags(@Param("id") UUID id);
+    // Find notes by multiple tag names for specific user
+    @Query("SELECT DISTINCT n FROM Note n JOIN n.noteTags nt JOIN nt.tag t WHERE n.user = :user AND t.name IN :tagNames")
+    List<Note> findByUserAndTagNames(@Param("user") User user, @Param("tagNames") List<String> tagNames);
 
-    // Search notes by title and content
-    @Query("SELECT n FROM Note n WHERE " +
+    // Find notes with eager loading of tags for specific user
+    @Query("SELECT DISTINCT n FROM Note n LEFT JOIN FETCH n.noteTags nt LEFT JOIN FETCH nt.tag WHERE n.user = :user AND n.id = :id")
+    Optional<Note> findByIdAndUserWithTags(@Param("id") UUID id, @Param("user") User user);
+
+    // Search notes by title and content for specific user
+    @Query("SELECT n FROM Note n WHERE n.user = :user AND (" +
            "LOWER(n.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(n.content) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
-    List<Note> searchNotes(@Param("searchTerm") String searchTerm);
+           "LOWER(n.content) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    List<Note> searchNotesByUser(@Param("user") User user, @Param("searchTerm") String searchTerm);
+
+    @Query("SELECT n FROM Note n WHERE n.user = :user AND (" +
+           "LOWER(n.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(n.content) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<Note> searchNotesByUser(@Param("user") User user, @Param("searchTerm") String searchTerm, Pageable pageable);
 
     // Advanced tag filtering - AND operation (notes that have ALL specified tags)
     @Query("SELECT DISTINCT n FROM Note n WHERE " +
@@ -59,15 +70,15 @@ public interface NoteRepository extends JpaRepository<Note, UUID> {
     @Query("SELECT DISTINCT n FROM Note n JOIN n.noteTags nt JOIN nt.tag t WHERE t.name IN :tagNames")
     Page<Note> findByAnyTags(@Param("tagNames") List<String> tagNames, Pageable pageable);
 
-    // Group-based filtering
-    List<Note> findByGroupOrderByCreatedAtDesc(Group group);
-    List<Note> findByGroupIdOrderByCreatedAtDesc(UUID groupId);
-    Page<Note> findByGroupOrderByCreatedAtDesc(Group group, Pageable pageable);
-    Page<Note> findByGroupIdOrderByCreatedAtDesc(UUID groupId, Pageable pageable);
+    // Group-based filtering for specific user
+    List<Note> findByUserAndGroupOrderByCreatedAtDesc(User user, Group group);
+    List<Note> findByUserAndGroupIdOrderByCreatedAtDesc(User user, UUID groupId);
+    Page<Note> findByUserAndGroupOrderByCreatedAtDesc(User user, Group group, Pageable pageable);
+    Page<Note> findByUserAndGroupIdOrderByCreatedAtDesc(User user, UUID groupId, Pageable pageable);
 
-    // Find notes without a group (ungrouped)
-    List<Note> findByGroupIsNullOrderByCreatedAtDesc();
-    Page<Note> findByGroupIsNullOrderByCreatedAtDesc(Pageable pageable);
+    // Find notes without a group (ungrouped) for specific user
+    List<Note> findByUserAndGroupIsNullOrderByCreatedAtDesc(User user);
+    Page<Note> findByUserAndGroupIsNullOrderByCreatedAtDesc(User user, Pageable pageable);
 
     // Group hierarchy filtering - find notes in group and all its subgroups
     @Query("SELECT DISTINCT n FROM Note n WHERE n.group.id = :groupId OR " +

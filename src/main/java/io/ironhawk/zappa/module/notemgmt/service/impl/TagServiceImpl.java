@@ -6,6 +6,8 @@ import io.ironhawk.zappa.module.notemgmt.entity.Tag;
 import io.ironhawk.zappa.module.notemgmt.repository.NoteTagRepository;
 import io.ironhawk.zappa.module.notemgmt.repository.TagRepository;
 import io.ironhawk.zappa.module.notemgmt.service.TagService;
+import io.ironhawk.zappa.security.entity.User;
+import io.ironhawk.zappa.security.service.CurrentUserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,14 +25,17 @@ public class TagServiceImpl implements TagService {
 
     private final TagRepository tagRepository;
     private final NoteTagRepository noteTagRepository;
+    private final CurrentUserService currentUserService;
 
     @Override
     @Transactional
     public Tag createTag(Tag tag) {
-        log.info("Creating new tag with name: {}", tag.getName());
+        User currentUser = currentUserService.getCurrentUser();
+        tag.setUser(currentUser);
+        log.info("Creating new tag with name: {} for user: {}", tag.getName(), currentUser.getUsername());
 
-        // Check if tag with same name already exists
-        if (tagRepository.existsByNameIgnoreCase(tag.getName())) {
+        // Check if tag with same name already exists for this user
+        if (tagRepository.existsByUserAndNameIgnoreCase(currentUser, tag.getName())) {
             throw new IllegalArgumentException("Tag with name '" + tag.getName() + "' already exists");
         }
 
@@ -39,21 +44,23 @@ public class TagServiceImpl implements TagService {
 
     @Override
     public Optional<Tag> getTagById(UUID id) {
-        log.debug("Fetching tag with id: {}", id);
-        return tagRepository.findById(id);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching tag with id: {} for user: {}", id, currentUser.getUsername());
+        return tagRepository.findByIdAndUser(id, currentUser);
     }
 
     @Override
     @Transactional
     public Tag updateTag(Tag tag) {
-        log.info("Updating tag with id: {}", tag.getId());
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Updating tag with id: {} for user: {}", tag.getId(), currentUser.getUsername());
 
         if (!tagRepository.existsById(tag.getId())) {
             throw new IllegalArgumentException("Tag not found with id: " + tag.getId());
         }
 
         // Check if name is being changed to an existing name
-        Optional<Tag> existingTag = tagRepository.findByNameIgnoreCase(tag.getName());
+        Optional<Tag> existingTag = tagRepository.findByUserAndNameIgnoreCase(currentUser, tag.getName());
         if (existingTag.isPresent() && !existingTag.get().getId().equals(tag.getId())) {
             throw new IllegalArgumentException("Tag with name '" + tag.getName() + "' already exists");
         }
@@ -79,50 +86,58 @@ public class TagServiceImpl implements TagService {
 
     @Override
     public List<Tag> getAllTags() {
-        log.debug("Fetching all tags");
-        return tagRepository.findAll();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching all tags for user: {}", currentUser.getUsername());
+        return tagRepository.findByUserOrderByNameAsc(currentUser);
     }
 
     @Override
     public Optional<Tag> findTagByName(String name) {
-        log.debug("Finding tag by name: {}", name);
-        return tagRepository.findByNameIgnoreCase(name);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding tag by name: {} for user: {}", name, currentUser.getUsername());
+        return tagRepository.findByUserAndNameIgnoreCase(currentUser, name);
     }
 
     @Override
     public List<Tag> findTagsByNamePattern(String namePattern) {
-        log.debug("Finding tags by name pattern: {}", namePattern);
-        return tagRepository.findByNameContainingIgnoreCase(namePattern);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding tags by name pattern: {} for user: {}", namePattern, currentUser.getUsername());
+        return tagRepository.findByUserAndNameContainingIgnoreCase(currentUser, namePattern);
     }
 
     @Override
     public List<Tag> findTagsByColor(String color) {
-        log.debug("Finding tags by color: {}", color);
-        return tagRepository.findByColor(color);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding tags by color: {} for user: {}", color, currentUser.getUsername());
+        return tagRepository.findByUserAndColor(currentUser, color);
     }
 
     @Override
     public Page<Tag> getTags(Pageable pageable) {
-        log.debug("Fetching tags with pagination: {}", pageable);
-        return tagRepository.findAll(pageable);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching tags with pagination: {} for user: {}", pageable, currentUser.getUsername());
+        return tagRepository.findByUserOrderByNameAsc(currentUser, pageable);
     }
 
     @Override
     public Page<Tag> searchTags(String namePattern, Pageable pageable) {
-        log.debug("Searching tags with pattern: {} and pagination: {}", namePattern, pageable);
-        return tagRepository.findByNameContainingIgnoreCase(namePattern, pageable);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Searching tags with pattern: {} and pagination: {} for user: {}", namePattern, pageable, currentUser.getUsername());
+        return tagRepository.findByUserAndNameContainingIgnoreCase(currentUser, namePattern, pageable);
     }
 
     @Override
     public List<Tag> findUnusedTags() {
-        log.debug("Finding unused tags");
-        return tagRepository.findUnusedTags();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding unused tags for user: {}", currentUser.getUsername());
+        return tagRepository.findUnusedTagsByUser(currentUser);
     }
 
     @Override
     public List<Tag> findPopularTags() {
-        log.debug("Finding popular tags");
-        List<Object[]> results = tagRepository.findTagsWithUsageCount();
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding popular tags for user: {}", currentUser.getUsername());
+        List<Object[]> results = tagRepository.findTagsWithUsageCountByUser(currentUser);
         return results.stream()
             .map(result -> (Tag) result[0])
             .toList();
@@ -130,8 +145,9 @@ public class TagServiceImpl implements TagService {
 
     @Override
     public List<Tag> findTagsWithMinUsage(int minUsage) {
-        log.debug("Finding tags with minimum usage: {}", minUsage);
-        return tagRepository.findTagsWithMinUsage(minUsage);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding tags with minimum usage: {} for user: {}", minUsage, currentUser.getUsername());
+        return tagRepository.findTagsWithMinUsageByUser(currentUser, minUsage);
     }
 
     @Override
@@ -148,21 +164,24 @@ public class TagServiceImpl implements TagService {
 
     @Override
     public boolean tagExists(String name) {
-        log.debug("Checking if tag exists with name: {}", name);
-        return tagRepository.existsByNameIgnoreCase(name);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Checking if tag exists with name: {} for user: {}", name, currentUser.getUsername());
+        return tagRepository.existsByUserAndNameIgnoreCase(currentUser, name);
     }
 
     @Override
     @Transactional
     public Tag getOrCreateTag(String name, String color) {
-        log.debug("Getting or creating tag with name: {}", name);
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting or creating tag with name: {} for user: {}", name, currentUser.getUsername());
 
-        Optional<Tag> existingTag = tagRepository.findByNameIgnoreCase(name);
+        Optional<Tag> existingTag = tagRepository.findByUserAndNameIgnoreCase(currentUser, name);
         if (existingTag.isPresent()) {
             return existingTag.get();
         }
 
         Tag newTag = Tag.of(name, color);
+        newTag.setUser(currentUser);
 
         return tagRepository.save(newTag);
     }

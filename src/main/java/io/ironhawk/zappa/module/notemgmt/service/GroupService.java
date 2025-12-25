@@ -36,5 +36,6 @@ public interface GroupService {
 
     // Utility methods
     List<Group> getGroupHierarchy(UUID groupId); // Get full path from root to group
-    Group getDefaultGroup(); // Get "General" group for new notes
+    boolean hasAnyGroups(); // Check if current user has any groups
+    Group createDefaultGroup(); // Create default group if user has none
 }
