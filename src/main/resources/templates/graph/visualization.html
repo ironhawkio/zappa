@@ -112,9 +112,9 @@
                                             <small class="text-muted me-2">Quick tags:</small>
                                             <span th:each="tag : ${allTags}"
                                                   th:if="${tagStat.count <= 8}"
-                                                  class="badge bg-secondary"
+                                                  class="badge bg-secondary quick-tag"
                                                   style="cursor: pointer;"
-                                                  th:onclick="'addQuickTag(\'' + ${tag.name} + '\')'">
+                                                  th:data-tag-name="${tag.name}">
                                                 <span th:text="${tag.name}">Tag</span>
                                             </span>
                                         </div>
@@ -339,6 +339,16 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeGraph();
             loadGraphData();
+
+            // Add event listeners for quick tag buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.quick-tag')) {
+                    const tagName = e.target.closest('.quick-tag').getAttribute('data-tag-name');
+                    if (tagName) {
+                        addQuickTag(tagName);
+                    }
+                }
+            });
         });
 
         function initializeGraph() {
