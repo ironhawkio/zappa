@@ -65,6 +65,9 @@ public class TagServiceImpl implements TagService {
             throw new IllegalArgumentException("Tag with name '" + tag.getName() + "' already exists");
         }
 
+        // Set the current user to ensure user_id is not null
+        tag.setUser(currentUser);
+
         return tagRepository.save(tag);
     }
 
