@@ -408,8 +408,9 @@
                                 ${note.content ? note.content.substring(0, 60) + '...' : 'No content'}
                             </small>
                         </div>
-                        <button class="btn btn-sm btn-outline-success"
-                                onclick="addLinkInEdit('${note.id}', '${note.title}')">
+                        <button class="btn btn-sm btn-outline-success add-link-btn"
+                                data-note-id="${note.id}"
+                                data-note-title="${note.title}">
                             <i class="fas fa-plus"></i> Link
                         </button>
                     </div>
@@ -658,6 +659,18 @@
             if (fileInput) {
                 fileInput.addEventListener('change', handleFileSelection);
             }
+
+            // Add event listener for add link buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.add-link-btn')) {
+                    const button = e.target.closest('.add-link-btn');
+                    const noteId = button.getAttribute('data-note-id');
+                    const noteTitle = button.getAttribute('data-note-title');
+                    if (noteId && noteTitle) {
+                        addLinkInEdit(noteId, noteTitle);
+                    }
+                }
+            });
         });
 
     </script>
