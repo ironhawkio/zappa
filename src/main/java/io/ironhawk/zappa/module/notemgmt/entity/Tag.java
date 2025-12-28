@@ -136,18 +136,28 @@ public class Tag {
 
     // Convenience methods
     public boolean isGlobal() {
-        return this.group == null;
+        return this.group == null || "Default".equalsIgnoreCase(this.group.getName());
     }
 
     public boolean isGroupSpecific() {
-        return this.group != null;
+        return this.group != null && !"Default".equalsIgnoreCase(this.group.getName());
+    }
+
+    public boolean isInDefaultGroup() {
+        return this.group != null && "Default".equalsIgnoreCase(this.group.getName());
     }
 
     public String getDisplayName() {
-        return isGlobal() ? name + " (Global)" : name;
+        if (this.group == null) {
+            return name + " (Default)";
+        }
+        return "Default".equalsIgnoreCase(this.group.getName()) ? name + " (Default)" : name;
     }
 
     public String getScope() {
-        return isGlobal() ? "Global" : group.getName();
+        if (this.group == null) {
+            return "Default";
+        }
+        return this.group.getName();
     }
 }

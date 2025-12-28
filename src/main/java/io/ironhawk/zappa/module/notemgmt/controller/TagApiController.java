@@ -81,11 +81,20 @@ public class TagApiController {
     }
 
     /**
-     * Make tag global
+     * Make tag global (move to Default group)
      */
     @PutMapping("/{tagId}/make-global")
     public Tag makeTagGlobal(@PathVariable UUID tagId) {
-        log.info("API request: making tag {} global", tagId);
+        log.info("API request: making tag {} global (Default group)", tagId);
+        return tagService.makeTagGlobal(tagId);
+    }
+
+    /**
+     * Move tag to Default group
+     */
+    @PutMapping("/{tagId}/move-to-group/default")
+    public Tag moveTagToDefaultGroup(@PathVariable UUID tagId) {
+        log.info("API request: moving tag {} to Default group", tagId);
         return tagService.makeTagGlobal(tagId);
     }
 

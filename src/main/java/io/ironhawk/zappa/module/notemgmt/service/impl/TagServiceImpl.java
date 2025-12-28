@@ -283,7 +283,9 @@ public class TagServiceImpl implements TagService {
     @Override
     @Transactional
     public Tag createGlobalTag(Tag tag) {
-        return createTagInGroup(tag, null);
+        // Create in Default group instead of null
+        Group defaultGroup = groupService.getDefaultGroup();
+        return createTagInGroup(tag, defaultGroup.getId());
     }
 
     @Override
@@ -308,7 +310,7 @@ public class TagServiceImpl implements TagService {
             }
         }
 
-        // Fallback to global tag
+        // Fallback to default group tag
         return getOrCreateGlobalTag(name, color);
     }
 
@@ -316,14 +318,17 @@ public class TagServiceImpl implements TagService {
     @Transactional
     public Tag getOrCreateGlobalTag(String name, String color) {
         User currentUser = currentUserService.getCurrentUser();
-        log.debug("Getting or creating global tag '{}' for user: {}", name, currentUser.getUsername());
+        Group defaultGroup = groupService.getDefaultGroup();
+        log.debug("Getting or creating tag '{}' in Default group for user: {}", name, currentUser.getUsername());
 
-        Optional<Tag> existingTag = tagRepository.findByUserAndNameIgnoreCase(currentUser, name);
-        if (existingTag.isPresent() && existingTag.get().isGlobal()) {
+        // Look for existing tag in Default group
+        Optional<Tag> existingTag = tagRepository.findByUserAndNameIgnoreCaseInGroupOrGlobal(currentUser, name, defaultGroup);
+        if (existingTag.isPresent()) {
             return existingTag.get();
         }
 
-        Tag newTag = Tag.global(name, color);
+        // Create new tag in Default group
+        Tag newTag = Tag.ofGroup(name, color, defaultGroup);
         newTag.setUser(currentUser);
         return tagRepository.save(newTag);
     }
@@ -418,6 +423,8 @@ public class TagServiceImpl implements TagService {
     @Override
     @Transactional
     public Tag makeTagGlobal(UUID tagId) {
-        return moveTagToGroup(tagId, null);
+        // Move to Default group instead of null
+        Group defaultGroup = groupService.getDefaultGroup();
+        return moveTagToGroup(tagId, defaultGroup.getId());
     }
 }

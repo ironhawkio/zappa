@@ -27,5 +27,6 @@
 
     <!-- Group-scoped tags -->
     <include file="db/changelog/014-add-group-to-tags.xml"/>
+    <include file="db/changelog/015-migrate-tags-to-default-group.xml"/>
 
 </databaseChangeLog>

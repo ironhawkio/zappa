@@ -244,6 +244,24 @@ public class GroupServiceImpl implements GroupService {
         return groupRepository.save(defaultGroup);
     }
 
+    @Override
+    public Group getDefaultGroup() {
+        Group defaultGroup = findDefaultGroup();
+        if (defaultGroup != null) {
+            return defaultGroup;
+        }
+        return createDefaultGroup();
+    }
+
+    @Override
+    public Group findDefaultGroup() {
+        User currentUser = currentUserService.getCurrentUser();
+
+        // Look for a group named "Default" with no parent
+        return groupRepository.findByUserAndNameIgnoreCaseAndParentGroupIsNull(currentUser, "Default")
+            .orElse(null);
+    }
+
     // Helper method to check for circular references
     private boolean isDescendantOf(Group potentialAncestor, Group potentialDescendant) {
         Group current = potentialAncestor.getParentGroup();

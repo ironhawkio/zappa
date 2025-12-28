@@ -98,11 +98,16 @@ public class TagWebController {
                 .color(request.getColor())
                 .build();
 
-            Tag createdTag = tagService.createTagInGroup(tag, request.getGroupId());
+            // If no group specified, use Default group
+            UUID targetGroupId = request.getGroupId();
+            if (targetGroupId == null) {
+                targetGroupId = groupService.getDefaultGroup().getId();
+            }
 
-            String scope = createdTag.isGlobal() ? "global" : "group '" + createdTag.getGroup().getName() + "'";
+            Tag createdTag = tagService.createTagInGroup(tag, targetGroupId);
+            String groupName = createdTag.getGroup().getName();
             redirectAttributes.addFlashAttribute("success",
-                "Tag '" + createdTag.getName() + "' created successfully as " + scope + " tag!");
+                "Tag '" + createdTag.getName() + "' created successfully in '" + groupName + "' group!");
             return "redirect:/tags";
         } catch (Exception e) {
             log.error("Error creating tag", e);
@@ -155,27 +160,23 @@ public class TagWebController {
             existingTag.setColor(color);
 
             // Handle group assignment change
-            if (groupId != null) {
-                // Moving to specific group
-                if (existingTag.getGroup() == null || !existingTag.getGroup().getId().equals(groupId)) {
-                    existingTag = tagService.moveTagToGroup(id, groupId);
-                } else {
-                    // Same group, just update other properties
-                    existingTag = tagService.updateTag(existingTag);
-                }
-            } else {
-                // Making global
-                if (existingTag.getGroup() != null) {
-                    existingTag = tagService.makeTagGlobal(id);
-                } else {
-                    // Already global, just update other properties
-                    existingTag = tagService.updateTag(existingTag);
-                }
+            UUID targetGroupId = groupId;
+            if (targetGroupId == null) {
+                // If no group specified, use Default group
+                targetGroupId = groupService.getDefaultGroup().getId();
             }
 
-            String scope = existingTag.isGlobal() ? "global" : "group '" + existingTag.getGroup().getName() + "'";
+            // Move to target group if different from current
+            if (existingTag.getGroup() == null || !existingTag.getGroup().getId().equals(targetGroupId)) {
+                existingTag = tagService.moveTagToGroup(id, targetGroupId);
+            } else {
+                // Same group, just update other properties
+                existingTag = tagService.updateTag(existingTag);
+            }
+
+            String groupName = existingTag.getGroup().getName();
             redirectAttributes.addFlashAttribute("success",
-                "Tag '" + existingTag.getName() + "' updated successfully as " + scope + " tag!");
+                "Tag '" + existingTag.getName() + "' updated successfully in '" + groupName + "' group!");
             return "redirect:/tags/" + id;
         } catch (Exception e) {
             log.error("Error updating tag", e);

@@ -20,6 +20,8 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
 
     // Find by name for specific user
     Optional<Group> findByUserAndName(User user, String name);
+    Optional<Group> findByUserAndNameIgnoreCase(User user, String name);
+    Optional<Group> findByUserAndNameIgnoreCaseAndParentGroupIsNull(User user, String name);
     boolean existsByUserAndName(User user, String name);
 
     // Find root groups (no parent) for specific user
