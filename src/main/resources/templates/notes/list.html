@@ -73,20 +73,32 @@
                         <div class="mb-3">
                             <label class="form-label">Selected Tags:</label>
                             <div id="selectedTagsContainer" class="border rounded p-2 min-height-40">
-                                <span class="text-muted" id="noTagsSelected">Click tags below to add them</span>
+                                <span class="text-muted" id="noTagsSelected">Search and select tags below to add them</span>
                             </div>
                         </div>
 
-                        <!-- Tag Selection Area -->
+                        <!-- Tag Search Selection -->
                         <div class="mb-3">
-                            <label class="form-label">Available Tags:</label>
-                            <div class="d-flex flex-wrap gap-2" id="availableTagsContainer">
-                                <span th:each="tag : ${allTags}"
-                                      class="badge bg-light text-dark tag-selectable"
-                                      style="cursor: pointer; font-size: 0.9em; padding: 8px 12px;"
-                                      th:text="${tag.name}"
-                                      th:data-tag="${tag.name}"
-                                      onclick="toggleTagSelection(this)">Tag</span>
+                            <label class="form-label">Search and Select Tags:</label>
+                            <div class="notes-tag-selector-wrapper" style="min-width: 100%;">
+                                <div class="notes-tag-input-container">
+                                    <input type="text"
+                                           id="notesTagSearchInput"
+                                           class="notes-tag-search-input"
+                                           placeholder="Search tags to add to filter..."
+                                           autocomplete="off">
+                                </div>
+                                <div class="notes-tag-dropdown" id="notesTagDropdown" style="display: none;">
+                                    <div class="notes-tag-dropdown-content">
+                                        <div th:each="tag : ${allTags}"
+                                             class="notes-tag-option"
+                                             th:data-tag-name="${tag.name}"
+                                             th:data-tag-color="${tag.color}">
+                                            <span class="notes-tag-color-indicator" th:style="'background-color: ' + ${tag.color}"></span>
+                                            <span th:text="${tag.name}">Tag Name</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -304,6 +316,98 @@
             border-bottom: 2px solid #e9ecef;
         }
 
+        /* Notes Tag Selector Styles */
+        .notes-tag-selector-wrapper {
+            position: relative;
+        }
+
+        .notes-tag-input-container {
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            background: white;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            cursor: text;
+        }
+
+        .notes-tag-input-container:focus-within {
+            border-color: #86b7fe;
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .notes-tag-search-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+        }
+
+        .notes-tag-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            max-height: 200px;
+            overflow-y: auto;
+            opacity: 0;
+            transform: translateY(-5px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            pointer-events: none;
+        }
+
+        .notes-tag-dropdown.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .notes-tag-dropdown-content {
+            padding: 0.5rem 0;
+        }
+
+        .notes-tag-option {
+            padding: 0.375rem 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .notes-tag-option:hover {
+            background: #f8f9fa;
+        }
+
+        .notes-tag-option.selected {
+            background: #e7f1ff;
+            color: #0f5132;
+        }
+
+        .notes-tag-color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+
+        .notes-no-tags-found {
+            padding: 0.75rem;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            font-size: 0.875rem;
+        }
+
         .badge.removable {
             position: relative;
             padding-right: 25px !important;
@@ -355,6 +459,7 @@
         function showTagFilter() {
             document.getElementById('tagFilterPanel').style.display = 'block';
             initializeSelectedTags();
+            initializeNotesTagSelector();
         }
 
         function hideTagFilter() {
@@ -387,23 +492,7 @@
             }
         }
 
-        function toggleTagSelection(element) {
-            const tagName = element.getAttribute('data-tag');
-
-            if (selectedTags.includes(tagName)) {
-                // Remove tag
-                selectedTags = selectedTags.filter(t => t !== tagName);
-                element.classList.remove('bg-primary', 'text-white');
-                element.classList.add('bg-light', 'text-dark');
-            } else {
-                // Add tag
-                selectedTags.push(tagName);
-                element.classList.remove('bg-light', 'text-dark');
-                element.classList.add('bg-primary', 'text-white');
-            }
-
-            updateSelectedTagsDisplay();
-        }
+        // toggleTagSelection function removed - now using searchable dropdown
 
         function updateSelectedTagsDisplay() {
             const container = document.getElementById('selectedTagsContainer');
@@ -441,6 +530,125 @@
             }
 
             updateSelectedTagsDisplay();
+        }
+
+        function initializeNotesTagSelector() {
+            const tagSearchInput = document.getElementById('notesTagSearchInput');
+            const tagDropdown = document.getElementById('notesTagDropdown');
+            let isDropdownVisible = false;
+
+            if (!tagSearchInput || !tagDropdown) return; // Guard clause
+
+            // Show dropdown when input is focused
+            tagSearchInput.addEventListener('focus', showNotesDropdown);
+
+            // Hide dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.notes-tag-selector-wrapper')) {
+                    hideNotesDropdown();
+                }
+            });
+
+            // Prevent dropdown from closing when clicking inside it
+            tagDropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
+            // Search functionality with debouncing
+            let searchTimeout;
+            tagSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    filterNotesTagOptions(searchTerm);
+                    showNotesDropdown();
+                }, 150);
+            });
+
+            // Handle tag option clicks
+            tagDropdown.addEventListener('click', function(e) {
+                const tagOption = e.target.closest('.notes-tag-option');
+                if (tagOption) {
+                    const tagName = tagOption.getAttribute('data-tag-name');
+                    selectNotesTag(tagName);
+                }
+            });
+
+            // Handle Enter key to select first visible option
+            tagSearchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const firstVisibleOption = tagDropdown.querySelector('.notes-tag-option:not([style*="display: none"])');
+                    if (firstVisibleOption) {
+                        const tagName = firstVisibleOption.getAttribute('data-tag-name');
+                        selectNotesTag(tagName);
+                    }
+                }
+            });
+
+            function showNotesDropdown() {
+                if (!isDropdownVisible) {
+                    tagDropdown.style.display = 'block';
+                    // Force reflow to ensure display change is applied before transition
+                    tagDropdown.offsetHeight;
+                    tagDropdown.classList.add('show');
+                    isDropdownVisible = true;
+                    filterNotesTagOptions(tagSearchInput.value.toLowerCase());
+                }
+            }
+
+            function hideNotesDropdown() {
+                if (isDropdownVisible) {
+                    tagDropdown.classList.remove('show');
+                    setTimeout(() => {
+                        if (!isDropdownVisible) {
+                            tagDropdown.style.display = 'none';
+                        }
+                    }, 150);
+                    tagSearchInput.value = '';
+                    isDropdownVisible = false;
+                }
+            }
+
+            function filterNotesTagOptions(searchTerm) {
+                const options = tagDropdown.querySelectorAll('.notes-tag-option');
+                let hasVisibleOptions = false;
+
+                options.forEach(option => {
+                    const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                    const isSelected = selectedTags.includes(option.getAttribute('data-tag-name'));
+                    const matches = tagName.includes(searchTerm);
+
+                    if (matches && !isSelected) {
+                        option.style.display = 'flex';
+                        hasVisibleOptions = true;
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+
+                // Show/hide no results message
+                let noResultsMsg = tagDropdown.querySelector('.notes-no-tags-found');
+                if (!hasVisibleOptions && searchTerm) {
+                    if (!noResultsMsg) {
+                        noResultsMsg = document.createElement('div');
+                        noResultsMsg.className = 'notes-no-tags-found';
+                        noResultsMsg.textContent = 'No tags found';
+                        tagDropdown.querySelector('.notes-tag-dropdown-content').appendChild(noResultsMsg);
+                    }
+                    noResultsMsg.style.display = 'block';
+                } else if (noResultsMsg) {
+                    noResultsMsg.style.display = 'none';
+                }
+            }
+
+            function selectNotesTag(tagName) {
+                if (!selectedTags.includes(tagName)) {
+                    selectedTags.push(tagName);
+                    updateSelectedTagsDisplay();
+                    hideNotesDropdown();
+                }
+            }
         }
 
         function applyTagFilter() {

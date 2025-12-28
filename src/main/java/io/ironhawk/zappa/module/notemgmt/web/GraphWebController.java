@@ -73,7 +73,8 @@ public class GraphWebController {
                 // Calculate node properties
                 long linkCount = noteLinkService.countLinksForNote(note.getId());
                 node.put("linkCount", linkCount);
-                node.put("size", Math.max(10, Math.min(30, linkCount * 5))); // Size based on connections
+                // More pronounced size scaling: base 15, scale by linkCount * 8, max 60
+                node.put("size", Math.max(15, Math.min(60, 15 + linkCount * 8))); // Size based on connections
 
                 // Default color
                 node.put("color", "#6c757d");

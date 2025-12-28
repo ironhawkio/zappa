@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Edit Group - Zappa</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>
+                        <i class="fas fa-edit me-2"></i>Edit Group
+                    </h2>
+                    <a th:href="@{/groups}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Groups
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <form th:action="@{/groups/{groupId}/edit(groupId=${group.id})}" th:object="${createGroupRequest}" method="post">
+                            <!-- Name -->
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Group Name</label>
+                                <input type="text" id="name" th:field="*{name}"
+                                       class="form-control" th:classappend="${#fields.hasErrors('name')} ? 'is-invalid'">
+                                <div th:if="${#fields.hasErrors('name')}" class="invalid-feedback">
+                                    <span th:errors="*{name}"></span>
+                                </div>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea id="description" th:field="*{description}" rows="3"
+                                          class="form-control" th:classappend="${#fields.hasErrors('description')} ? 'is-invalid'"></textarea>
+                                <div th:if="${#fields.hasErrors('description')}" class="invalid-feedback">
+                                    <span th:errors="*{description}"></span>
+                                </div>
+                            </div>
+
+                            <!-- Parent Group -->
+                            <div class="mb-3">
+                                <label for="parentGroupId" class="form-label">Parent Group (Optional)</label>
+                                <select id="parentGroupId" th:field="*{parentGroupId}" class="form-select">
+                                    <option value="">No Parent (Root Group)</option>
+                                    <option th:each="group : ${parentGroups}"
+                                            th:unless="${group.id == group.id}"
+                                            th:value="${group.id}"
+                                            th:text="${group.name}">
+                                        Parent Group
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Note: A group cannot be its own parent or a child of itself.
+                                </small>
+                            </div>
+
+                            <!-- Color -->
+                            <div class="mb-3">
+                                <label for="color" class="form-label">Color</label>
+                                <div class="input-group">
+                                    <input type="color" id="colorPicker"
+                                           class="form-control form-control-color" style="max-width: 80px;"
+                                           th:value="${createGroupRequest.color}">
+                                    <input type="text" id="color" th:field="*{color}"
+                                           class="form-control" placeholder="#6c757d">
+                                </div>
+                                <div th:if="${#fields.hasErrors('color')}" class="invalid-feedback">
+                                    <span th:errors="*{color}"></span>
+                                </div>
+                            </div>
+
+                            <!-- Icon -->
+                            <div class="mb-3">
+                                <label for="icon" class="form-label">Icon (Font Awesome class)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i th:class="${createGroupRequest.icon}" id="icon-preview"></i>
+                                    </span>
+                                    <input type="text" id="icon" th:field="*{icon}"
+                                           class="form-control" placeholder="fas fa-folder">
+                                </div>
+                                <small class="form-text text-muted">
+                                    Examples: fas fa-folder, fas fa-code, fas fa-camera, fas fa-book
+                                </small>
+                                <div th:if="${#fields.hasErrors('icon')}" class="invalid-feedback">
+                                    <span th:errors="*{icon}"></span>
+                                </div>
+                            </div>
+
+                            <!-- Sort Order -->
+                            <div class="mb-3">
+                                <label for="sortOrder" class="form-label">Sort Order</label>
+                                <input type="number" id="sortOrder" th:field="*{sortOrder}"
+                                       class="form-control" min="0" max="999">
+                                <small class="form-text text-muted">
+                                    Lower numbers appear first. Default is 0.
+                                </small>
+                                <div th:if="${#fields.hasErrors('sortOrder')}" class="invalid-feedback">
+                                    <span th:errors="*{sortOrder}"></span>
+                                </div>
+                            </div>
+
+                            <!-- Submit Buttons -->
+                            <div class="d-flex justify-content-end gap-2">
+                                <a th:href="@{/groups}" class="btn btn-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>Update Group
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <script>
+        // Update icon preview when icon input changes
+        document.getElementById('icon').addEventListener('input', function() {
+            const iconPreview = document.getElementById('icon-preview');
+            iconPreview.className = this.value || 'fas fa-folder';
+        });
+
+        // Update color input sync
+        const colorPicker = document.getElementById('colorPicker');
+        const colorText = document.getElementById('color');
+
+        colorPicker.addEventListener('change', function() {
+            colorText.value = this.value;
+        });
+
+        colorText.addEventListener('input', function() {
+            if (this.value.match(/^#[0-9A-F]{6}$/i)) {
+                colorPicker.value = this.value;
+            }
+        });
+    </script>
+</body>
+</html>
