@@ -25,4 +25,11 @@ public class TagUpdateRequest {
 
     @Size(max = 255, message = "Color must not exceed 255 characters")
     private String color;
+
+    private UUID groupId; // null = global tag
+
+    // Helper method to check if this is a global tag
+    public boolean isGlobal() {
+        return groupId == null;
+    }
 }

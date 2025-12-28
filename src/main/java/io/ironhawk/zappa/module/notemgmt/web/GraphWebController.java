@@ -43,7 +43,17 @@ public class GraphWebController {
         model.addAttribute("totalNodes", notes.size());
         model.addAttribute("totalLinks", links.size());
         model.addAttribute("allGroups", groupService.getRootGroups());
-        model.addAttribute("allTags", tagService.getAllTags());
+
+        // Get group-scoped tags
+        UUID selectedGroupId = null;
+        if (!group.isEmpty()) {
+            try {
+                selectedGroupId = UUID.fromString(group);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid group ID: {}", group);
+            }
+        }
+        model.addAttribute("allTags", tagService.getTagsForGroup(selectedGroupId));
         model.addAttribute("selectedTags", tags);
         model.addAttribute("tagFilter", tagFilter);
 

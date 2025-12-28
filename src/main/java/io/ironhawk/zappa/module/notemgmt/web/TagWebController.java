@@ -2,7 +2,10 @@ package io.ironhawk.zappa.module.notemgmt.web;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.ironhawk.zappa.module.notemgmt.dto.TagCreateRequest;
+import io.ironhawk.zappa.module.notemgmt.dto.TagUpdateRequest;
 import io.ironhawk.zappa.module.notemgmt.entity.Tag;
+import io.ironhawk.zappa.module.notemgmt.service.GroupService;
 import io.ironhawk.zappa.module.notemgmt.service.NoteTagService;
 import io.ironhawk.zappa.module.notemgmt.service.TagService;
 import org.springframework.data.domain.Page;
@@ -25,6 +28,7 @@ public class TagWebController {
 
     private final TagService tagService;
     private final NoteTagService noteTagService;
+    private final GroupService groupService;
 
     @GetMapping
     public String listTags(
@@ -59,25 +63,46 @@ public class TagWebController {
         model.addAttribute("totalPages", tags.getTotalPages());
         model.addAttribute("unusedTags", tagService.findUnusedTags());
         model.addAttribute("popularTags", tagService.findPopularTags());
+        model.addAttribute("allGroups", groupService.getAllGroups());
 
         return "tags/list";
     }
 
     @GetMapping("/new")
-    public String showCreateForm(Model model) {
-        model.addAttribute("tag", new Tag());
+    public String showCreateForm(@RequestParam(defaultValue = "") String group, Model model) {
+        TagCreateRequest tagRequest = new TagCreateRequest();
+
+        // Pre-select group if provided
+        if (!group.isEmpty()) {
+            try {
+                UUID groupId = UUID.fromString(group);
+                tagRequest.setGroupId(groupId);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid group ID: {}", group);
+            }
+        }
+
+        model.addAttribute("tag", tagRequest);
+        model.addAttribute("allGroups", groupService.getAllGroups());
         return "tags/form";
     }
 
     @PostMapping
     public String createTag(
-        @ModelAttribute Tag tag,
+        @ModelAttribute TagCreateRequest request,
         RedirectAttributes redirectAttributes) {
 
         try {
-            Tag createdTag = tagService.createTag(tag);
+            Tag tag = Tag.builder()
+                .name(request.getName())
+                .color(request.getColor())
+                .build();
+
+            Tag createdTag = tagService.createTagInGroup(tag, request.getGroupId());
+
+            String scope = createdTag.isGlobal() ? "global" : "group '" + createdTag.getGroup().getName() + "'";
             redirectAttributes.addFlashAttribute("success",
-                "Tag '" + createdTag.getName() + "' created successfully!");
+                "Tag '" + createdTag.getName() + "' created successfully as " + scope + " tag!");
             return "redirect:/tags";
         } catch (Exception e) {
             log.error("Error creating tag", e);
@@ -106,6 +131,7 @@ public class TagWebController {
             .map(tag -> {
                 model.addAttribute("tag", tag);
                 model.addAttribute("usageCount", noteTagService.countNotesForTag(id));
+                model.addAttribute("allGroups", groupService.getAllGroups());
                 return "tags/edit";
             })
             .orElse("redirect:/tags");
@@ -114,14 +140,42 @@ public class TagWebController {
     @PostMapping("/{id}/update")
     public String updateTag(
         @PathVariable UUID id,
-        @ModelAttribute Tag tag,
+        @RequestParam String name,
+        @RequestParam(required = false) String color,
+        @RequestParam(required = false) UUID groupId,
         RedirectAttributes redirectAttributes) {
 
         try {
-            tag.setId(id);
-            Tag updatedTag = tagService.updateTag(tag);
+            // Get existing tag
+            Tag existingTag = tagService.getTagById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Tag not found"));
+
+            // Update basic properties
+            existingTag.setName(name);
+            existingTag.setColor(color);
+
+            // Handle group assignment change
+            if (groupId != null) {
+                // Moving to specific group
+                if (existingTag.getGroup() == null || !existingTag.getGroup().getId().equals(groupId)) {
+                    existingTag = tagService.moveTagToGroup(id, groupId);
+                } else {
+                    // Same group, just update other properties
+                    existingTag = tagService.updateTag(existingTag);
+                }
+            } else {
+                // Making global
+                if (existingTag.getGroup() != null) {
+                    existingTag = tagService.makeTagGlobal(id);
+                } else {
+                    // Already global, just update other properties
+                    existingTag = tagService.updateTag(existingTag);
+                }
+            }
+
+            String scope = existingTag.isGlobal() ? "global" : "group '" + existingTag.getGroup().getName() + "'";
             redirectAttributes.addFlashAttribute("success",
-                "Tag '" + updatedTag.getName() + "' updated successfully!");
+                "Tag '" + existingTag.getName() + "' updated successfully as " + scope + " tag!");
             return "redirect:/tags/" + id;
         } catch (Exception e) {
             log.error("Error updating tag", e);
