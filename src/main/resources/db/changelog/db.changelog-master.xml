@@ -25,4 +25,7 @@
     <include file="/db/changelog/012-add-multi-tenant.xml"/>
     <include file="/db/changelog/013-create-user-preferences.xml"/>
 
+    <!-- Group-scoped tags -->
+    <include file="db/changelog/014-add-group-to-tags.xml"/>
+
 </databaseChangeLog>

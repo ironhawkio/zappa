@@ -101,8 +101,18 @@ public class NoteWebController {
             notes = noteService.getNotes(pageable);
         }
 
+        // Get group-scoped tags
+        UUID selectedGroupId = null;
+        if (!group.isEmpty()) {
+            try {
+                selectedGroupId = UUID.fromString(group);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid group ID: {}", group);
+            }
+        }
+
         model.addAttribute("notes", notes);
-        model.addAttribute("allTags", tagService.getAllTags());
+        model.addAttribute("allTags", tagService.getTagsForGroup(selectedGroupId));
         model.addAttribute("allGroups", groupService.getRootGroups());
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", notes.getTotalPages());
@@ -111,10 +121,22 @@ public class NoteWebController {
     }
 
     @GetMapping("/new")
-    public String showCreateForm(Model model) {
+    public String showCreateForm(@RequestParam(defaultValue = "") String group, Model model) {
         model.addAttribute("note", new Note());
-        model.addAttribute("allTags", tagService.getAllTags());
+
+        // Get group-scoped tags for note creation
+        UUID selectedGroupId = null;
+        if (!group.isEmpty()) {
+            try {
+                selectedGroupId = UUID.fromString(group);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid group ID: {}", group);
+            }
+        }
+
+        model.addAttribute("allTags", tagService.getTagsForGroup(selectedGroupId));
         model.addAttribute("allGroups", groupService.getAllGroupsWithParent());
+        model.addAttribute("selectedGroupId", selectedGroupId);
         return "notes/form";
     }
 
@@ -242,7 +264,10 @@ public class NoteWebController {
         return noteService.getNoteById(id)
             .map(note -> {
                 model.addAttribute("note", note);
-                model.addAttribute("allTags", tagService.getAllTags());
+
+                // Get group-scoped tags based on note's group
+                UUID noteGroupId = note.getGroup() != null ? note.getGroup().getId() : null;
+                model.addAttribute("allTags", tagService.getTagsForGroup(noteGroupId));
                 model.addAttribute("allGroups", groupService.getAllGroupsWithParent());
                 model.addAttribute("noteTags", tagService.findTagsByNoteId(id));
 

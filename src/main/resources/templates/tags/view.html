@@ -61,7 +61,7 @@
                                     </div>
                                     <div class="col-md-4">
                                         <h3 class="text-info">
-                                            <span th:text="${#dates.daysBetween(tag.createdAt, #dates.createNow())}">0</span>
+                                            <span th:text="${T(java.time.temporal.ChronoUnit).DAYS.between(tag.createdAt.toLocalDate(), T(java.time.LocalDate).now())}">0</span>
                                         </h3>
                                         <small class="text-muted">Days old</small>
                                     </div>

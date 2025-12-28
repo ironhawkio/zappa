@@ -34,6 +34,10 @@ public class Tag {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group; // null = global tag, available in all groups
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -64,6 +68,36 @@ public class Tag {
         return Tag.builder()
             .name(name)
             .color(color)
+            .build();
+    }
+
+    public static Tag ofGroup(String name, Group group) {
+        return Tag.builder()
+            .name(name)
+            .group(group)
+            .build();
+    }
+
+    public static Tag ofGroup(String name, String color, Group group) {
+        return Tag.builder()
+            .name(name)
+            .color(color)
+            .group(group)
+            .build();
+    }
+
+    public static Tag global(String name) {
+        return Tag.builder()
+            .name(name)
+            .group(null) // Explicitly global
+            .build();
+    }
+
+    public static Tag global(String name, String color) {
+        return Tag.builder()
+            .name(name)
+            .color(color)
+            .group(null) // Explicitly global
             .build();
     }
 
@@ -98,5 +132,22 @@ public class Tag {
             .name(name)
             .color(color)
             .build();
+    }
+
+    // Convenience methods
+    public boolean isGlobal() {
+        return this.group == null;
+    }
+
+    public boolean isGroupSpecific() {
+        return this.group != null;
+    }
+
+    public String getDisplayName() {
+        return isGlobal() ? name + " (Global)" : name;
+    }
+
+    public String getScope() {
+        return isGlobal() ? "Global" : group.getName();
     }
 }

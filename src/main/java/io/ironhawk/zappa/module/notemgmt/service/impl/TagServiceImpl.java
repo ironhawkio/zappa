@@ -2,9 +2,11 @@ package io.ironhawk.zappa.module.notemgmt.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.ironhawk.zappa.module.notemgmt.entity.Group;
 import io.ironhawk.zappa.module.notemgmt.entity.Tag;
 import io.ironhawk.zappa.module.notemgmt.repository.NoteTagRepository;
 import io.ironhawk.zappa.module.notemgmt.repository.TagRepository;
+import io.ironhawk.zappa.module.notemgmt.service.GroupService;
 import io.ironhawk.zappa.module.notemgmt.service.TagService;
 import io.ironhawk.zappa.security.entity.User;
 import io.ironhawk.zappa.security.service.CurrentUserService;
@@ -26,6 +28,7 @@ public class TagServiceImpl implements TagService {
     private final TagRepository tagRepository;
     private final NoteTagRepository noteTagRepository;
     private final CurrentUserService currentUserService;
+    private final GroupService groupService;
 
     @Override
     @Transactional
@@ -199,5 +202,222 @@ public class TagServiceImpl implements TagService {
             log.info("Found {} unused tags to delete", unusedTags.size());
             tagRepository.deleteAll(unusedTags);
         }
+    }
+
+    // ===============================
+    // Group-scoped tag operations
+    // ===============================
+
+    @Override
+    public List<Tag> getTagsForGroup(UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting tags for group: {} and user: {}", groupId, currentUser.getUsername());
+
+        if (groupId == null) {
+            // Return all tags if no group specified
+            return getAllTags();
+        }
+
+        Optional<Group> groupOpt = groupService.getGroupById(groupId);
+        if (groupOpt.isEmpty()) {
+            return getGlobalTags();
+        }
+
+        Group group = groupOpt.get();
+        List<Group> groupHierarchy = groupService.getGroupHierarchy(groupId);
+        groupHierarchy.add(group); // Include the group itself
+
+        return tagRepository.findTagsAvailableForGroupHierarchy(currentUser, groupHierarchy);
+    }
+
+    @Override
+    public List<Tag> getGroupSpecificTags(UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting group-specific tags for group: {} and user: {}", groupId, currentUser.getUsername());
+
+        if (groupId == null) {
+            return getGlobalTags();
+        }
+
+        return groupService.getGroupById(groupId)
+            .map(group -> tagRepository.findByUserAndGroupOrderByNameAsc(currentUser, group))
+            .orElse(List.of());
+    }
+
+    @Override
+    public List<Tag> getGlobalTags() {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting global tags for user: {}", currentUser.getUsername());
+        return tagRepository.findByUserAndGroupIsNullOrderByNameAsc(currentUser);
+    }
+
+    @Override
+    @Transactional
+    public Tag createTagInGroup(Tag tag, UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        tag.setUser(currentUser);
+
+        if (groupId != null) {
+            Group group = groupService.getGroupById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + groupId));
+            tag.setGroup(group);
+            log.info("Creating tag '{}' in group '{}' for user: {}", tag.getName(), group.getName(), currentUser.getUsername());
+
+            // Check if tag already exists in this group context
+            if (tagRepository.existsByUserAndNameIgnoreCaseInGroupOrGlobal(currentUser, tag.getName(), group)) {
+                throw new IllegalArgumentException("Tag with name '" + tag.getName() + "' already exists in this group or globally");
+            }
+        } else {
+            tag.setGroup(null);
+            log.info("Creating global tag '{}' for user: {}", tag.getName(), currentUser.getUsername());
+
+            // Check if global tag already exists
+            if (tagRepository.existsByUserAndNameIgnoreCase(currentUser, tag.getName())) {
+                throw new IllegalArgumentException("Global tag with name '" + tag.getName() + "' already exists");
+            }
+        }
+
+        return tagRepository.save(tag);
+    }
+
+    @Override
+    @Transactional
+    public Tag createGlobalTag(Tag tag) {
+        return createTagInGroup(tag, null);
+    }
+
+    @Override
+    @Transactional
+    public Tag getOrCreateTagInGroup(String name, String color, UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting or creating tag '{}' in group: {} for user: {}", name, groupId, currentUser.getUsername());
+
+        if (groupId != null) {
+            Group group = groupService.getGroupById(groupId).orElse(null);
+            if (group != null) {
+                // Check if tag exists in group context (group-specific or global)
+                Optional<Tag> existingTag = tagRepository.findByUserAndNameIgnoreCaseInGroupOrGlobal(currentUser, name, group);
+                if (existingTag.isPresent()) {
+                    return existingTag.get();
+                }
+
+                // Create new tag in group
+                Tag newTag = Tag.ofGroup(name, color, group);
+                newTag.setUser(currentUser);
+                return tagRepository.save(newTag);
+            }
+        }
+
+        // Fallback to global tag
+        return getOrCreateGlobalTag(name, color);
+    }
+
+    @Override
+    @Transactional
+    public Tag getOrCreateGlobalTag(String name, String color) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Getting or creating global tag '{}' for user: {}", name, currentUser.getUsername());
+
+        Optional<Tag> existingTag = tagRepository.findByUserAndNameIgnoreCase(currentUser, name);
+        if (existingTag.isPresent() && existingTag.get().isGlobal()) {
+            return existingTag.get();
+        }
+
+        Tag newTag = Tag.global(name, color);
+        newTag.setUser(currentUser);
+        return tagRepository.save(newTag);
+    }
+
+    @Override
+    public boolean tagExistsInGroup(String name, UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+
+        if (groupId == null) {
+            return tagRepository.existsByUserAndNameIgnoreCase(currentUser, name);
+        }
+
+        return groupService.getGroupById(groupId)
+            .map(group -> tagRepository.existsByUserAndNameIgnoreCaseInGroupOrGlobal(currentUser, name, group))
+            .orElse(false);
+    }
+
+    @Override
+    public Optional<Tag> findTagByNameInGroup(String name, UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+
+        if (groupId == null) {
+            return tagRepository.findByUserAndNameIgnoreCase(currentUser, name);
+        }
+
+        return groupService.getGroupById(groupId)
+            .flatMap(group -> tagRepository.findByUserAndNameIgnoreCaseInGroupOrGlobal(currentUser, name, group));
+    }
+
+    @Override
+    public List<Tag> findPopularTagsInGroup(UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding popular tags in group: {} for user: {}", groupId, currentUser.getUsername());
+
+        if (groupId == null) {
+            return findPopularTags();
+        }
+
+        return groupService.getGroupById(groupId)
+            .map(group -> {
+                List<Object[]> results = tagRepository.findTagsWithUsageCountByUserAndGroup(currentUser, group);
+                return results.stream()
+                    .map(result -> (Tag) result[0])
+                    .toList();
+            })
+            .orElse(List.of());
+    }
+
+    @Override
+    public List<Tag> findUnusedTagsInGroup(UUID groupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Finding unused tags in group: {} for user: {}", groupId, currentUser.getUsername());
+
+        if (groupId == null) {
+            return tagRepository.findUnusedGlobalTagsByUser(currentUser);
+        }
+
+        return groupService.getGroupById(groupId)
+            .map(group -> tagRepository.findUnusedTagsByUserAndGroup(currentUser, group))
+            .orElse(List.of());
+    }
+
+    @Override
+    @Transactional
+    public void deleteUnusedTagsInGroup(UUID groupId) {
+        List<Tag> unusedTags = findUnusedTagsInGroup(groupId);
+        if (!unusedTags.isEmpty()) {
+            log.info("Deleting {} unused tags in group: {}", unusedTags.size(), groupId);
+            tagRepository.deleteAll(unusedTags);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Tag moveTagToGroup(UUID tagId, UUID newGroupId) {
+        User currentUser = currentUserService.getCurrentUser();
+        Tag tag = tagRepository.findByIdAndUser(tagId, currentUser)
+            .orElseThrow(() -> new IllegalArgumentException("Tag not found with id: " + tagId));
+
+        Group newGroup = null;
+        if (newGroupId != null) {
+            newGroup = groupService.getGroupById(newGroupId)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + newGroupId));
+        }
+
+        tag.setGroup(newGroup);
+        log.info("Moving tag '{}' to group: {} for user: {}", tag.getName(), newGroupId, currentUser.getUsername());
+
+        return tagRepository.save(tag);
+    }
+
+    @Override
+    @Transactional
+    public Tag makeTagGlobal(UUID tagId) {
+        return moveTagToGroup(tagId, null);
     }
 }
