@@ -1,0 +1,257 @@
+/* SearchableSelector - Generic CSS for searchable selection components */
+
+/* Container Styles */
+.searchable-selector-wrapper {
+    position: relative;
+}
+
+.searchable-input-container {
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: white;
+    min-height: 38px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    cursor: text;
+}
+
+.searchable-input-container:focus-within {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Selected Items */
+.selected-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.selected-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    color: #495057;
+}
+
+.selected-item .item-remove {
+    margin-left: 0.375rem;
+    cursor: pointer;
+    color: #6c757d;
+    font-weight: bold;
+}
+
+.selected-item .item-remove:hover {
+    color: #dc3545;
+}
+
+/* Search Input */
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 120px;
+}
+
+.searchable-input {
+    border: none;
+    outline: none;
+    width: 100%;
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+    background: transparent;
+    position: relative;
+    z-index: 2;
+}
+
+/* Search Suggestions */
+.search-suggestion {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+    color: #6c757d;
+    pointer-events: none;
+    z-index: 1;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.suggestion-match {
+    color: transparent;
+}
+
+.suggestion-completion {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Dropdown */
+.searchable-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    overflow-y: auto;
+    display: none;
+}
+
+.searchable-dropdown.show {
+    display: block !important;
+}
+
+.dropdown-content {
+    padding: 0.5rem 0;
+}
+
+/* Dropdown Options */
+.searchable-option {
+    padding: 0.375rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    transition: background-color 0.1s ease;
+    user-select: none;
+}
+
+.searchable-option:hover {
+    background: #f8f9fa;
+}
+
+.searchable-option.highlighted {
+    background: #007bff;
+    color: white;
+}
+
+.searchable-option.selected {
+    background: #e7f1ff;
+    color: #0f5132;
+}
+
+/* Match Highlighting */
+.searchable-option .match-highlight {
+    background-color: #fff3cd;
+    font-weight: bold;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.searchable-option.highlighted .match-highlight {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+/* No Results */
+.no-results-found {
+    padding: 0.75rem;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
+/* Color Indicator (for tag-like items) */
+.color-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+}
+
+/* Icon Indicator (for group-like items) */
+.icon-indicator {
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* Compact mode for smaller spaces */
+.searchable-selector-wrapper.compact .searchable-input-container {
+    min-height: 32px;
+    padding: 0.125rem 0.375rem;
+}
+
+.searchable-selector-wrapper.compact .searchable-input {
+    font-size: 0.8rem;
+}
+
+.searchable-selector-wrapper.compact .selected-item {
+    padding: 0.0625rem 0.375rem;
+    font-size: 0.7rem;
+}
+
+.searchable-selector-wrapper.compact .searchable-option {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Large mode for prominent selectors */
+.searchable-selector-wrapper.large .searchable-input-container {
+    min-height: 48px;
+    padding: 0.5rem 0.75rem;
+}
+
+.searchable-selector-wrapper.large .searchable-input {
+    font-size: 1rem;
+}
+
+.searchable-selector-wrapper.large .selected-item {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.searchable-selector-wrapper.large .searchable-option {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+}
+
+/* Single select mode (no selected items container) */
+.searchable-selector-wrapper.single-select .selected-items {
+    display: none;
+}
+
+/* Read-only mode */
+.searchable-selector-wrapper.readonly .searchable-input {
+    cursor: default;
+    background: #f8f9fa;
+}
+
+.searchable-selector-wrapper.readonly .searchable-input-container {
+    background: #f8f9fa;
+    cursor: default;
+}
+
+/* Disabled mode */
+.searchable-selector-wrapper.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Error state */
+.searchable-selector-wrapper.error .searchable-input-container {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+/* Success state */
+.searchable-selector-wrapper.success .searchable-input-container {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+}

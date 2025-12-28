@@ -95,9 +95,32 @@
                                             <label class="form-label me-3 mb-0">
                                                 <i class="fas fa-tags me-1"></i>Filter by Tags:
                                             </label>
-                                            <input type="text" class="form-control form-control-sm me-3"
-                                                   id="tagInput" placeholder="Enter tags (comma-separated)"
-                                                   th:value="${selectedTags}">
+                                            <div class="tag-selector-wrapper me-3" style="min-width: 300px;">
+                                                <div class="tag-input-container">
+                                                    <div class="selected-tags" id="selectedTagsContainer"></div>
+                                                    <div class="search-input-wrapper">
+                                                        <input type="text"
+                                                               id="tagSearchInput"
+                                                               class="tag-search-input"
+                                                               placeholder="Search and select tags..."
+                                                               autocomplete="off"
+                                                               spellcheck="false">
+                                                        <div class="search-suggestion" id="searchSuggestion"></div>
+                                                    </div>
+                                                    <input type="hidden" id="tagInput" th:value="${selectedTags}">
+                                                </div>
+                                                <div class="tag-dropdown" id="tagDropdown" style="display: none;">
+                                                    <div class="tag-dropdown-content">
+                                                        <div th:each="tag : ${allTags}"
+                                                             class="tag-option"
+                                                             th:data-tag-name="${tag.name}"
+                                                             th:data-tag-color="${tag.color}">
+                                                            <span class="tag-color-indicator" th:style="'background-color: ' + ${tag.color}"></span>
+                                                            <span th:text="${tag.name}">Tag Name</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             <select class="form-select form-select-sm me-3" id="tagFilterType" style="max-width: 120px;">
                                                 <option value="any" th:selected="${tagFilter == 'any'}">Any Tags</option>
                                                 <option value="all" th:selected="${tagFilter == 'all'}">All Tags</option>
@@ -125,41 +148,6 @@
                     </div>
                 </div>
 
-                <!-- Graph stats -->
-                <div class="row mb-4">
-                    <div class="col-md-3">
-                        <div class="card text-center">
-                            <div class="card-body py-2">
-                                <h5 class="text-primary" th:text="${totalNodes}">0</h5>
-                                <small class="text-muted">Nodes</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card text-center">
-                            <div class="card-body py-2">
-                                <h5 class="text-success" th:text="${totalLinks}">0</h5>
-                                <small class="text-muted">Links</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card text-center">
-                            <div class="card-body py-2">
-                                <h5 class="text-info" id="selectedNode">0</h5>
-                                <small class="text-muted">Selected</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card text-center">
-                            <div class="card-body py-2">
-                                <h5 class="text-warning" id="connectedNodes">0</h5>
-                                <small class="text-muted">Connected</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -281,9 +269,6 @@
                             <button class="btn btn-sm btn-outline-success" onclick="centerGraph()">
                                 <i class="fas fa-crosshairs me-1"></i>Center Graph
                             </button>
-                            <button class="btn btn-sm btn-outline-info" onclick="showStats()">
-                                <i class="fas fa-chart-bar me-1"></i>Show Stats
-                            </button>
                             <a href="/notes/new" class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-plus me-1"></i>Add Note
                             </a>
@@ -320,6 +305,180 @@
     <!-- D3.js -->
     <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
 
+    <style>
+        /* Tag Selector Styles */
+        .tag-selector-wrapper {
+            position: relative;
+        }
+
+        .tag-input-container {
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: white;
+            min-height: 38px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            align-items: center;
+            cursor: text;
+        }
+
+        .tag-input-container:focus-within {
+            border-color: #86b7fe;
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .selected-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+
+        .selected-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.125rem 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            color: #495057;
+        }
+
+        .selected-tag .tag-remove {
+            margin-left: 0.375rem;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .selected-tag .tag-remove:hover {
+            color: #dc3545;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .tag-search-input {
+            border: none;
+            outline: none;
+            width: 100%;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+            background: transparent;
+            position: relative;
+            z-index: 2;
+        }
+
+        .search-suggestion {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+            color: #6c757d;
+            pointer-events: none;
+            z-index: 1;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .suggestion-match {
+            color: transparent;
+        }
+
+        .suggestion-completion {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .tag-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .tag-dropdown.show {
+            display: block !important;
+        }
+
+        .tag-dropdown-content {
+            padding: 0.5rem 0;
+        }
+
+        .tag-option {
+            padding: 0.375rem 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            /* Prevent flicker on hover */
+            transition: none;
+            user-select: none;
+            pointer-events: auto;
+        }
+
+        .tag-option:hover {
+            background: #f8f9fa;
+            /* Stable hover state */
+            transition: background-color 0.1s ease;
+        }
+
+        .tag-option.selected {
+            background: #e7f1ff;
+            color: #0f5132;
+        }
+
+        .tag-option.highlighted {
+            background: #007bff;
+            color: white;
+        }
+
+        /* Highlight matching text in dropdown options */
+        .tag-option .match-highlight {
+            background-color: #fff3cd;
+            font-weight: bold;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        .tag-option.highlighted .match-highlight {
+            background-color: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .tag-color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+
+        .no-tags-found {
+            padding: 0.75rem;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            font-size: 0.875rem;
+        }
+    </style>
+
     <script>
         // Graph visualization with Cytoscape.js
         let cy = null;
@@ -339,6 +498,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeGraph();
             loadGraphData();
+            initializeTagSelector();
 
             // Add event listeners for quick tag buttons
             document.addEventListener('click', function(e) {
@@ -350,6 +510,480 @@
                 }
             });
         });
+
+        function initializeTagSelector() {
+            const tagSearchInput = document.getElementById('tagSearchInput');
+            const tagDropdown = document.getElementById('tagDropdown');
+            const tagInput = document.getElementById('tagInput');
+            const selectedTagsContainer = document.getElementById('selectedTagsContainer');
+            const searchSuggestion = document.getElementById('searchSuggestion');
+            let selectedTags = [];
+            let availableTags = [];
+            let currentSuggestion = '';
+            let highlightedIndex = -1;
+
+            // Build available tags list from DOM
+            const tagOptions = tagDropdown.querySelectorAll('.tag-option');
+            tagOptions.forEach(option => {
+                availableTags.push({
+                    name: option.getAttribute('data-tag-name'),
+                    color: option.getAttribute('data-tag-color'),
+                    element: option
+                });
+            });
+
+            // Parse initially selected tags
+            if (tagInput.value) {
+                selectedTags = tagInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                renderSelectedTags();
+            }
+
+            // Show dropdown when input is focused
+            tagSearchInput.addEventListener('focus', function() {
+                const searchTerm = tagSearchInput.value.trim();
+                if (searchTerm) {
+                    // If there's already text, filter and show matches
+                    const matchCount = filterTagOptions(searchTerm.toLowerCase());
+                    if (matchCount > 0) {
+                        showDropdown();
+                    }
+                } else {
+                    // If empty, show all available tags
+                    filterTagOptions('');
+                    showDropdown();
+                }
+            });
+
+            // Hide dropdown when clicking outside - simplified
+            document.addEventListener('click', function(e) {
+                const isInsideSelector = e.target.closest('.tag-selector-wrapper');
+                const isInsideDropdown = e.target.closest('.tag-dropdown');
+
+                if (!isInsideSelector && !isInsideDropdown && isDropdownVisible) {
+                    hideDropdown();
+                }
+            });
+
+            // Hide dropdown on scroll and resize - but debounced
+            let hideTimeout;
+            function scheduleHide() {
+                clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
+                    if (isDropdownVisible) {
+                        hideDropdown();
+                    }
+                }, 100);
+            }
+
+            window.addEventListener('scroll', scheduleHide, { passive: true });
+            window.addEventListener('resize', scheduleHide, { passive: true });
+
+            // Prevent any event bubbling from dropdown
+            tagDropdown.addEventListener('mouseenter', function(e) {
+                e.stopPropagation();
+            });
+
+            tagDropdown.addEventListener('mouseleave', function(e) {
+                e.stopPropagation();
+            });
+
+            tagDropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+            });
+
+            // Search functionality with suggestions and debouncing
+            let searchTimeout;
+            tagSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value;
+                const searchTermLower = searchTerm.toLowerCase();
+
+                // Update search suggestion immediately
+                updateSuggestion(searchTerm);
+
+                // Debounce the dropdown filtering
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const matchCount = filterTagOptions(searchTermLower);
+                    // Always show dropdown if there's a search term and matches
+                    if (searchTerm.trim() && matchCount > 0) {
+                        showDropdown();
+                    } else if (!searchTerm.trim()) {
+                        hideDropdown();
+                    }
+                }, 50); // Very fast response for immediate feedback
+            });
+
+            // Handle tag option clicks with isolated event delegation
+            tagDropdown.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+
+                const tagOption = e.target.closest('.tag-option');
+                if (tagOption) {
+                    const tagName = tagOption.getAttribute('data-tag-name');
+                    if (tagName) {
+                        selectTag(tagName);
+                    }
+                }
+            }, { capture: true });
+
+            // Handle keyboard navigation for suggestions
+            tagSearchInput.addEventListener('keydown', function(e) {
+                const visibleOptions = Array.from(tagDropdown.querySelectorAll('.tag-option:not([style*="display: none"])'));
+
+                switch (e.key) {
+                    case 'Enter':
+                        e.preventDefault();
+                        if (highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+                            // Priority 1: Select highlighted option from dropdown
+                            const tagName = visibleOptions[highlightedIndex].getAttribute('data-tag-name');
+                            selectTag(tagName);
+                        } else if (currentSuggestion && tagSearchInput.value.trim()) {
+                            // Priority 2: Accept current suggestion
+                            selectTag(currentSuggestion);
+                        } else if (visibleOptions.length === 1) {
+                            // Priority 3: If only one option visible, select it
+                            const tagName = visibleOptions[0].getAttribute('data-tag-name');
+                            selectTag(tagName);
+                        } else if (visibleOptions.length > 1) {
+                            // Priority 4: Multiple options available, highlight first one
+                            highlightedIndex = 0;
+                            updateHighlight(visibleOptions);
+                        }
+                        break;
+
+                    case 'Tab':
+                        if (currentSuggestion && tagSearchInput.value.trim() !== currentSuggestion) {
+                            e.preventDefault();
+                            // Accept current suggestion
+                            tagSearchInput.value = currentSuggestion;
+                            updateSuggestion(currentSuggestion);
+                        } else if (visibleOptions.length > 0 && highlightedIndex < 0) {
+                            e.preventDefault();
+                            // Highlight first option if no suggestion available
+                            highlightedIndex = 0;
+                            updateHighlight(visibleOptions);
+                            showDropdown();
+                        }
+                        break;
+
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        if (visibleOptions.length > 0) {
+                            highlightedIndex = Math.min(highlightedIndex + 1, visibleOptions.length - 1);
+                            updateHighlight(visibleOptions);
+                            showDropdown();
+                        }
+                        break;
+
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        if (visibleOptions.length > 0) {
+                            highlightedIndex = Math.max(highlightedIndex - 1, -1);
+                            updateHighlight(visibleOptions);
+                            showDropdown();
+                        }
+                        break;
+
+                    case 'Escape':
+                        hideDropdown();
+                        highlightedIndex = -1;
+                        break;
+                }
+            });
+
+            let isDropdownVisible = false;
+            let dropdownPending = false;
+
+            function updateSuggestion(searchTerm) {
+                if (!searchTerm) {
+                    searchSuggestion.innerHTML = '';
+                    currentSuggestion = '';
+                    return;
+                }
+
+                // Find the best matching tag that starts with the search term
+                const unselectedTags = availableTags.filter(tag =>
+                    !selectedTags.includes(tag.name)
+                );
+
+                // Get all matching tags
+                const matchingTags = unselectedTags.filter(tag =>
+                    tag.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+                if (matchingTags.length === 0) {
+                    searchSuggestion.innerHTML = '';
+                    currentSuggestion = '';
+                    return;
+                }
+
+                // Sort by relevance: exact match > starts with > contains
+                matchingTags.sort((a, b) => {
+                    const aLower = a.name.toLowerCase();
+                    const bLower = b.name.toLowerCase();
+                    const searchLower = searchTerm.toLowerCase();
+
+                    // Exact match first
+                    if (aLower === searchLower && bLower !== searchLower) return -1;
+                    if (aLower !== searchLower && bLower === searchLower) return 1;
+
+                    // Then starts with
+                    if (aLower.startsWith(searchLower) && !bLower.startsWith(searchLower)) return -1;
+                    if (!aLower.startsWith(searchLower) && bLower.startsWith(searchLower)) return 1;
+
+                    // Then shorter names (more likely to be what user wants)
+                    if (aLower.startsWith(searchLower) && bLower.startsWith(searchLower)) {
+                        return a.name.length - b.name.length;
+                    }
+
+                    // Finally alphabetical
+                    return a.name.localeCompare(b.name);
+                });
+
+                const bestMatch = matchingTags[0];
+                const exactMatch = bestMatch.name.toLowerCase() === searchTerm.toLowerCase();
+
+                if (exactMatch) {
+                    // Exact match - no suggestion needed, but show count of other matches
+                    if (matchingTags.length > 1) {
+                        searchSuggestion.innerHTML = `<span class="suggestion-completion">(+${matchingTags.length - 1} more)</span>`;
+                    } else {
+                        searchSuggestion.innerHTML = '';
+                    }
+                    currentSuggestion = '';
+                } else if (bestMatch.name.toLowerCase().startsWith(searchTerm.toLowerCase())) {
+                    // Show suggestion for completion
+                    const matchPart = bestMatch.name.substring(0, searchTerm.length);
+                    const completionPart = bestMatch.name.substring(searchTerm.length);
+
+                    let suggestionHTML = `<span class="suggestion-match">${matchPart}</span><span class="suggestion-completion">${completionPart}</span>`;
+
+                    // Add count of other matches if more than one
+                    if (matchingTags.length > 1) {
+                        suggestionHTML += `<span class="suggestion-completion"> (+${matchingTags.length - 1} more)</span>`;
+                    }
+
+                    searchSuggestion.innerHTML = suggestionHTML;
+                    currentSuggestion = bestMatch.name;
+                } else {
+                    // No starts-with match, just show count
+                    searchSuggestion.innerHTML = `<span class="suggestion-completion">${matchingTags.length} match${matchingTags.length > 1 ? 'es' : ''}</span>`;
+                    currentSuggestion = '';
+                }
+            }
+
+            function updateHighlight(visibleOptions) {
+                // Remove existing highlights
+                visibleOptions.forEach(option => option.classList.remove('highlighted'));
+
+                // Add highlight to current index
+                if (highlightedIndex >= 0 && visibleOptions[highlightedIndex]) {
+                    visibleOptions[highlightedIndex].classList.add('highlighted');
+                }
+            }
+
+            function highlightMatchingText(option, tagName, searchTerm) {
+                if (!searchTerm) {
+                    resetHighlighting(option);
+                    return;
+                }
+
+                const tagTextSpan = option.querySelector('span:last-child');
+                if (!tagTextSpan) return;
+
+                const searchLower = searchTerm.toLowerCase();
+                const tagNameLower = tagName.toLowerCase();
+                const matchIndex = tagNameLower.indexOf(searchLower);
+
+                if (matchIndex >= 0) {
+                    const beforeMatch = tagName.substring(0, matchIndex);
+                    const matchText = tagName.substring(matchIndex, matchIndex + searchTerm.length);
+                    const afterMatch = tagName.substring(matchIndex + searchTerm.length);
+
+                    tagTextSpan.innerHTML = beforeMatch +
+                        '<span class="match-highlight">' + matchText + '</span>' +
+                        afterMatch;
+                } else {
+                    tagTextSpan.textContent = tagName;
+                }
+            }
+
+            function resetHighlighting(option) {
+                const tagTextSpan = option.querySelector('span:last-child');
+                if (tagTextSpan) {
+                    const tagName = option.getAttribute('data-tag-name');
+                    if (tagName) {
+                        tagTextSpan.textContent = tagName;
+                    }
+                }
+            }
+
+            function showDropdown() {
+                if (isDropdownVisible) return;
+
+                isDropdownVisible = true;
+                tagDropdown.classList.add('show');
+            }
+
+            function hideDropdown() {
+                if (!isDropdownVisible) return;
+
+                isDropdownVisible = false;
+                tagDropdown.classList.remove('show');
+
+                // Clear highlights and reset text highlighting
+                tagDropdown.querySelectorAll('.tag-option.highlighted').forEach(option => {
+                    option.classList.remove('highlighted');
+                });
+                tagDropdown.querySelectorAll('.tag-option').forEach(option => {
+                    resetHighlighting(option);
+                });
+                highlightedIndex = -1;
+
+                tagSearchInput.value = '';
+                searchSuggestion.innerHTML = '';
+                currentSuggestion = '';
+            }
+
+            function filterTagOptions(searchTerm) {
+                const options = tagDropdown.querySelectorAll('.tag-option');
+                let hasVisibleOptions = false;
+                let matchingTags = [];
+
+                // Reset highlight when filtering
+                highlightedIndex = -1;
+                options.forEach(option => option.classList.remove('highlighted'));
+
+                options.forEach(option => {
+                    const tagName = option.getAttribute('data-tag-name');
+                    if (!tagName) return;
+
+                    const tagNameLower = tagName.toLowerCase();
+                    const isSelected = selectedTags.includes(tagName);
+
+                    let matches = false;
+                    let exactMatch = false;
+
+                    if (!searchTerm) {
+                        // Show all unselected tags if no search term
+                        matches = !isSelected;
+                    } else {
+                        // Check if tag matches the search term
+                        matches = tagNameLower.includes(searchTerm.toLowerCase()) && !isSelected;
+                        exactMatch = tagNameLower === searchTerm.toLowerCase();
+                    }
+
+                    if (matches) {
+                        option.style.display = 'flex';
+                        hasVisibleOptions = true;
+
+                        // Highlight matching text in the tag name
+                        highlightMatchingText(option, tagName, searchTerm);
+
+                        // Collect matching tags for sorting
+                        matchingTags.push({
+                            element: option,
+                            name: tagName,
+                            nameLower: tagNameLower,
+                            startsWithSearch: searchTerm ? tagNameLower.startsWith(searchTerm.toLowerCase()) : false,
+                            exactMatch: exactMatch
+                        });
+                    } else {
+                        option.style.display = 'none';
+                        // Reset highlighting when hidden
+                        resetHighlighting(option);
+                    }
+                });
+
+                // Sort matching tags: exact matches first, then starts-with matches, then contains matches
+                if (searchTerm && matchingTags.length > 0) {
+                    matchingTags.sort((a, b) => {
+                        // Exact matches first
+                        if (a.exactMatch && !b.exactMatch) return -1;
+                        if (!a.exactMatch && b.exactMatch) return 1;
+
+                        // Then starts-with matches
+                        if (a.startsWithSearch && !b.startsWithSearch) return -1;
+                        if (!a.startsWithSearch && b.startsWithSearch) return 1;
+
+                        // Then alphabetical
+                        return a.name.localeCompare(b.name);
+                    });
+
+                    // Reorder DOM elements to match sorted order
+                    const dropdownContent = tagDropdown.querySelector('.tag-dropdown-content');
+                    matchingTags.forEach(tag => {
+                        dropdownContent.appendChild(tag.element);
+                    });
+                }
+
+                // Show/hide no results message
+                let noResultsMsg = tagDropdown.querySelector('.no-tags-found');
+                if (!hasVisibleOptions && searchTerm) {
+                    if (!noResultsMsg) {
+                        noResultsMsg = document.createElement('div');
+                        noResultsMsg.className = 'no-tags-found';
+                        noResultsMsg.textContent = 'No tags found';
+                        tagDropdown.querySelector('.tag-dropdown-content').appendChild(noResultsMsg);
+                    }
+                    noResultsMsg.style.display = 'block';
+                } else if (noResultsMsg) {
+                    noResultsMsg.style.display = 'none';
+                }
+
+                return matchingTags.length;
+            }
+
+            function selectTag(tagName) {
+                if (!selectedTags.includes(tagName)) {
+                    selectedTags.push(tagName);
+                    renderSelectedTags();
+                    updateTagInput();
+                    hideDropdown();
+
+                    // Clear search input and suggestions
+                    tagSearchInput.value = '';
+                    searchSuggestion.innerHTML = '';
+                    currentSuggestion = '';
+                    highlightedIndex = -1;
+                }
+            }
+
+            function removeTag(tagName) {
+                selectedTags = selectedTags.filter(tag => tag !== tagName);
+                renderSelectedTags();
+                updateTagInput();
+            }
+
+            function renderSelectedTags() {
+                selectedTagsContainer.innerHTML = '';
+                selectedTags.forEach(tagName => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'selected-tag';
+                    tagElement.innerHTML = `
+                        <span>${tagName}</span>
+                        <span class="tag-remove" onclick="removeSelectedTag('${tagName}')">&times;</span>
+                    `;
+                    selectedTagsContainer.appendChild(tagElement);
+                });
+            }
+
+            function updateTagInput() {
+                tagInput.value = selectedTags.join(', ');
+            }
+
+            // Global function for removing tags
+            window.removeSelectedTag = function(tagName) {
+                removeTag(tagName);
+            };
+
+            // Global function for adding tags (used by quick tags)
+            window.addTagToSelector = function(tagName) {
+                selectTag(tagName);
+            };
+        }
 
         function initializeGraph() {
             const container = document.getElementById('graph-container');
@@ -462,7 +1096,6 @@
                 }
 
                 loadNodeDetails(nodeId);
-                updateSelectedCount();
             });
 
             // Node hover effects
@@ -478,13 +1111,10 @@
                 node.removeClass('dimmed').addClass('highlighted');
                 connectedNodes.removeClass('dimmed').addClass('highlighted');
                 connectedEdges.removeClass('dimmed').addClass('highlighted');
-
-                document.getElementById('connectedNodes').textContent = connectedNodes.length;
             });
 
             cy.on('mouseout', 'node', function(evt) {
                 cy.elements().removeClass('dimmed highlighted');
-                document.getElementById('connectedNodes').textContent = '0';
             });
 
             // Edge hover effects
@@ -600,19 +1230,10 @@
         }
 
         function addQuickTag(tagName) {
-            const tagInput = document.getElementById('tagInput');
-            const currentTags = tagInput.value.trim();
-
-            if (currentTags) {
-                const tagList = currentTags.split(',').map(t => t.trim());
-                if (!tagList.includes(tagName)) {
-                    tagInput.value = currentTags + ', ' + tagName;
-                }
-            } else {
-                tagInput.value = tagName;
+            if (window.addTagToSelector) {
+                window.addTagToSelector(tagName);
+                applyTagFilter();
             }
-
-            applyTagFilter();
         }
 
         function changeGraphGroup() {
@@ -689,7 +1310,6 @@
 
             // Reset selections
             selectedNodes = [];
-            updateSelectedCount();
 
             // Load saved positions after layout
             layout.on('layoutstop', function() {
@@ -875,9 +1495,6 @@
             }, 3000);
         }
 
-        function updateSelectedCount() {
-            document.getElementById('selectedNode').textContent = selectedNodes.length;
-        }
 
         function loadNodeDetails(nodeId) {
             fetch(`/graph/node/${nodeId}`)
@@ -918,16 +1535,12 @@
                 .catch(error => console.error('Error loading node details:', error));
         }
 
-        function updateSelectedCount() {
-            document.getElementById('selectedNode').textContent = selectedNodes.length;
-        }
 
         function resetGraph() {
             if (!cy) return;
             selectedNodes = [];
             cy.elements().unselect();
             cy.elements().removeClass('dimmed highlighted');
-            updateSelectedCount();
             cy.fit();
         }
 
@@ -1015,13 +1628,6 @@
             cy.fit(null, 50);
         }
 
-        function showStats() {
-            fetch('/graph/stats')
-                .then(response => response.json())
-                .then(stats => {
-                    alert(`Graph Statistics:\n\nNodes: ${stats.totalNodes}\nLinks: ${stats.totalLinks}\nOrphaned: ${stats.orphanedNodes}\n\nMost Connected:\n${stats.hubs.map(hub => `• ${hub.title} (${hub.linkCount} links)`).join('\n')}`);
-                });
-        }
 
         function exportGraph() {
             if (!cy) return;
