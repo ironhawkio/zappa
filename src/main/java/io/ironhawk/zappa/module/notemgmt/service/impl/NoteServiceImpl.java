@@ -92,7 +92,6 @@ public class NoteServiceImpl implements NoteService {
         note.setAttachments(existingNote.getAttachments()); // Preserve existing attachments
         note.setOutgoingLinks(existingNote.getOutgoingLinks()); // Preserve existing links
         note.setIncomingLinks(existingNote.getIncomingLinks()); // Preserve existing links
-        note.setNoteTags(existingNote.getNoteTags()); // Preserve existing tags (will be updated separately)
 
         return noteRepository.save(note);
     }
