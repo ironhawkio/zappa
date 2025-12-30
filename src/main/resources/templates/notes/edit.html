@@ -80,9 +80,29 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="tagNames" class="form-label">Tags</label>
-                                        <div id="tag-selector-edit" class="tag-selector-wrapper"></div>
-                                        <input type="hidden" class="form-control" id="tagNames" name="tagNames"
+                                        <label class="form-label">Tags</label>
+                                        <div class="form-tag-selector-wrapper" style="min-width: 100%; position: relative;">
+                                            <div class="form-tag-input-container">
+                                                <div class="form-selected-tags" id="formSelectedTagsEdit"></div>
+                                                <input type="text"
+                                                       id="formTagSearchInputEdit"
+                                                       class="form-tag-search-input"
+                                                       placeholder="Search tags to add..."
+                                                       autocomplete="off">
+                                            </div>
+                                            <div class="form-tag-dropdown" id="formTagDropdownEdit" style="display: none;">
+                                                <div class="form-tag-dropdown-content">
+                                                    <div th:each="tag : ${allTags}"
+                                                         class="form-tag-option"
+                                                         th:data-tag-name="${tag.name}"
+                                                         th:data-tag-color="${tag.color}">
+                                                        <span class="form-tag-color-indicator" th:style="'background-color: ' + ${tag.color}"></span>
+                                                        <span th:text="${tag.name}">Tag Name</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="tagNames" name="tagNames"
                                                th:value="${#strings.listJoin(noteTags.![name], ', ')}">
                                         <div class="form-text">
                                             Search and select existing tags or type to create new ones.
@@ -353,60 +373,284 @@
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script src="/js/markdown-editor.js"></script>
-    <script src="/js/searchable-selector.js"></script>
+
+    <style>
+        .form-tag-input-container {
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            background: white;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            cursor: text;
+        }
+
+        .form-tag-input-container:focus-within {
+            border-color: #86b7fe;
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .form-tag-search-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+            min-width: 120px;
+        }
+
+        .form-selected-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+
+        .form-selected-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .form-selected-tag .remove-tag {
+            margin-left: 0.25rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .form-tag-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            max-height: 200px;
+            overflow-y: auto;
+            opacity: 0;
+            transform: translateY(-5px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            pointer-events: none;
+        }
+
+        .form-tag-dropdown.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .form-tag-option {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .form-tag-option:hover {
+            background-color: #f8f9fa;
+        }
+
+        .form-tag-color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+    </style>
 
     <script>
-        // Initialize searchable tag selector for note editing with server search
+        // Initialize form tag selector for edit form
         document.addEventListener('DOMContentLoaded', function() {
-            const initialTags = document.getElementById('tagNames').value;
-            const initialTagArray = initialTags ? initialTags.split(',').map(t => t.trim()).filter(t => t) : [];
+            initializeFormTagSelector('Edit');
+        });
 
-            // Convert tag names to tag objects
-            const selectedItems = initialTagArray.map(name => ({
-                name: name,
-                color: '#6c757d',
-                notesCount: 0
-            }));
+        function initializeFormTagSelector(formType) {
+            const tagSearchInput = document.getElementById(`formTagSearchInput${formType}`);
+            const tagDropdown = document.getElementById(`formTagDropdown${formType}`);
+            const selectedTagsContainer = document.getElementById(`formSelectedTags${formType}`);
+            const hiddenInput = document.getElementById('tagNames');
 
-            new SearchableSelector({
-                container: '#tag-selector-edit',
-                data: [], // Start empty, will be populated via server search
-                selectedItems: selectedItems,
-                searchProperty: 'name',
-                displayProperty: 'name',
-                valueProperty: 'name',
-                placeholder: 'Search and select tags...',
-                // Enable server-side search
-                enableServerSearch: true,
-                serverSearchUrl: '/api/tags/search',
-                serverSearchQueryParam: 'query',
-                serverSearchMinLength: 1,
-                serverSearchDebounceMs: 300,
-                renderOption: (tag) => `
-                    <div class="d-flex align-items-center">
-                        <span class="badge me-2" style="background-color: ${tag.color || '#6c757d'};">
-                            ${tag.name}
-                        </span>
-                        <small class="text-muted">${tag.notesCount || 0} notes</small>
-                    </div>
-                `,
-                renderSelectedItem: (tag) => `
-                    <span class="badge bg-primary me-1">
-                        ${tag.name}
-                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6em;" aria-label="Remove"></button>
-                    </span>
-                `,
-                onSelectionChanged: (selectedTags) => {
-                    // Update hidden input for form submission
-                    const tagNamesInput = document.getElementById('tagNames');
-                    tagNamesInput.value = selectedTags.map(tag => tag.name).join(', ');
-                },
-                onServerSearchError: (error, searchTerm) => {
-                    console.warn('Tag search failed, falling back to client-side search:', error);
+            if (!tagSearchInput || !tagDropdown || !selectedTagsContainer) return;
+
+            let selectedTags = [];
+            let isDropdownVisible = false;
+
+            // Initialize with existing tags for edit form
+            if (formType === 'Edit' && hiddenInput.value) {
+                const existingTags = hiddenInput.value.split(',').map(t => t.trim()).filter(t => t);
+                selectedTags = [...existingTags];
+                updateSelectedTagsDisplay();
+            }
+
+            // Click outside to close dropdown
+            document.addEventListener('click', function(e) {
+                if (!tagSearchInput.contains(e.target) && !tagDropdown.contains(e.target)) {
+                    hideDropdown();
                 }
             });
-        });
-    </script>
+
+            // Focus input when clicking container
+            selectedTagsContainer.parentElement.addEventListener('click', function(e) {
+                if (e.target === this || e.target === selectedTagsContainer) {
+                    tagSearchInput.focus();
+                }
+            });
+
+            // Prevent dropdown from closing when clicking inside it
+            tagDropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
+            // Search functionality with debouncing
+            let searchTimeout;
+            tagSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    filterTagOptions(searchTerm);
+                    showDropdown();
+                }, 150);
+            });
+
+            // Also trigger on focus to show dropdown
+            tagSearchInput.addEventListener('focus', function() {
+                const searchTerm = this.value.toLowerCase();
+                if (searchTerm.length >= 0) { // Show on focus even with empty input
+                    filterTagOptions(searchTerm);
+                    showDropdown();
+                }
+            });
+
+            // Handle tag option clicks
+            tagDropdown.addEventListener('click', function(e) {
+                const tagOption = e.target.closest('.form-tag-option');
+                if (tagOption) {
+                    const tagName = tagOption.getAttribute('data-tag-name');
+                    selectTag(tagName);
+                }
+            });
+
+            // Handle Enter key to select first visible option or create new tag
+            tagSearchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const searchTerm = this.value.trim();
+                    const firstVisibleOption = tagDropdown.querySelector('.form-tag-option:not([style*="display: none"])');
+
+                    if (firstVisibleOption) {
+                        const tagName = firstVisibleOption.getAttribute('data-tag-name');
+                        selectTag(tagName);
+                    } else if (searchTerm && !selectedTags.includes(searchTerm)) {
+                        // Create new tag
+                        selectTag(searchTerm);
+                    }
+                }
+            });
+
+            function showDropdown() {
+                if (!isDropdownVisible) {
+                    tagDropdown.style.display = 'block';
+                    // Force reflow to ensure display change is applied before transition
+                    tagDropdown.offsetHeight;
+                    tagDropdown.classList.add('show');
+                    isDropdownVisible = true;
+                    filterTagOptions(tagSearchInput.value.toLowerCase());
+                }
+            }
+
+            function hideDropdown() {
+                if (isDropdownVisible) {
+                    tagDropdown.classList.remove('show');
+                    setTimeout(() => {
+                        if (!isDropdownVisible) {
+                            tagDropdown.style.display = 'none';
+                        }
+                    }, 150);
+                    tagSearchInput.value = '';
+                    isDropdownVisible = false;
+                }
+            }
+
+            function filterTagOptions(searchTerm) {
+                const options = tagDropdown.querySelectorAll('.form-tag-option');
+                let hasVisibleOptions = false;
+
+                options.forEach(option => {
+                    const tagName = option.getAttribute('data-tag-name').toLowerCase();
+                    const isSelected = selectedTags.includes(option.getAttribute('data-tag-name'));
+                    const matches = tagName.includes(searchTerm);
+
+                    if (matches && !isSelected) {
+                        option.style.display = 'flex';
+                        hasVisibleOptions = true;
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+
+                // Show/hide no results message
+                let noResultsMsg = tagDropdown.querySelector('.form-no-tags-found');
+                if (!hasVisibleOptions && searchTerm) {
+                    if (!noResultsMsg) {
+                        noResultsMsg = document.createElement('div');
+                        noResultsMsg.className = 'form-no-tags-found text-muted text-center py-2';
+                        noResultsMsg.textContent = 'No tags found - press Enter to create new tag';
+                        tagDropdown.querySelector('.form-tag-dropdown-content').appendChild(noResultsMsg);
+                    }
+                    noResultsMsg.style.display = 'block';
+                } else if (noResultsMsg) {
+                    noResultsMsg.style.display = 'none';
+                }
+            }
+
+            function selectTag(tagName) {
+                if (!selectedTags.includes(tagName)) {
+                    selectedTags.push(tagName);
+                    updateSelectedTagsDisplay();
+                    updateHiddenInput();
+                    hideDropdown();
+                }
+            }
+
+            function removeTag(tagName) {
+                selectedTags = selectedTags.filter(tag => tag !== tagName);
+                updateSelectedTagsDisplay();
+                updateHiddenInput();
+            }
+
+            function updateSelectedTagsDisplay() {
+                selectedTagsContainer.innerHTML = selectedTags.map(tagName => `
+                    <span class="form-selected-tag">
+                        ${tagName}
+                        <span class="remove-tag" onclick="removeFormTag('${tagName}', '${formType}')">&times;</span>
+                    </span>
+                `).join('');
+            }
+
+            function updateHiddenInput() {
+                hiddenInput.value = selectedTags.join(', ');
+            }
+
+            // Expose removeTag function globally for onclick handlers
+            window[`removeFormTag`] = function(tagName, type) {
+                if (type === formType) {
+                    removeTag(tagName);
+                }
+            };
+        }
 
         function addTag(tagName) {
             // This function is kept for compatibility with existing tag suggestions
