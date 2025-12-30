@@ -33,7 +33,7 @@ public class TagWebController {
     @GetMapping
     public String listTags(
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "15") int size,
+        @RequestParam(defaultValue = "64") int size,
         @RequestParam(defaultValue = "") String search,
         @RequestParam(defaultValue = "") String color,
         Model model) {

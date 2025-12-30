@@ -62,6 +62,64 @@ function setupTagInput() {
     });
 }
 
+// Loading utilities
+function showButtonLoading(button) {
+    if (button) {
+        button.classList.add('loading');
+        button.disabled = true;
+    }
+}
+
+function hideButtonLoading(button) {
+    if (button) {
+        button.classList.remove('loading');
+        button.disabled = false;
+    }
+}
+
+function showLoadingSpinner(container, text = 'Loading...') {
+    if (!container) return;
+
+    const spinner = document.createElement('div');
+    spinner.className = 'loading-indicator d-flex align-items-center justify-content-center py-3';
+    spinner.innerHTML = `
+        <div class="loading-spinner"></div>
+        <span class="loading-text">${text}</span>
+    `;
+
+    container.appendChild(spinner);
+    return spinner;
+}
+
+function hideLoadingSpinner(container) {
+    if (!container) return;
+
+    const indicator = container.querySelector('.loading-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+// Form submission with loading states
+function setupFormSubmission() {
+    const forms = document.querySelectorAll('form[data-loading]');
+
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+
+            if (submitButton) {
+                showButtonLoading(submitButton);
+
+                // Auto-hide loading after timeout as fallback
+                setTimeout(() => {
+                    hideButtonLoading(submitButton);
+                }, 30000);
+            }
+        });
+    });
+}
+
 // Global utility functions
 function addTag(tagName) {
     const tagInput = document.getElementById('tagNames');
@@ -164,3 +222,6 @@ function setupSearch() {
 
 // Initialize search functionality
 document.addEventListener('DOMContentLoaded', setupSearch);
+
+// Initialize form loading states
+document.addEventListener('DOMContentLoaded', setupFormSubmission);

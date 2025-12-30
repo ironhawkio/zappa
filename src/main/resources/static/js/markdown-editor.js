@@ -109,6 +109,14 @@ class MarkdownEditor {
             return;
         }
 
+        // Show loading spinner
+        this.preview.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center py-4">
+                <div class="loading-spinner me-2"></div>
+                <span class="loading-text">Rendering preview...</span>
+            </div>
+        `;
+
         // Send to server for rendering
         fetch('/api/markdown/render', {
             method: 'POST',

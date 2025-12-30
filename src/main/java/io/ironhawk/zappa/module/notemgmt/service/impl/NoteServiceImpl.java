@@ -79,12 +79,21 @@ public class NoteServiceImpl implements NoteService {
         User currentUser = currentUserService.getCurrentUser();
         log.info("Updating note with id: {} for user: {}", note.getId(), currentUser.getUsername());
 
-        Optional<Note> existingNote = noteRepository.findByIdAndUser(note.getId(), currentUser);
-        if (existingNote.isEmpty()) {
+        Optional<Note> existingNoteOpt = noteRepository.findByIdAndUser(note.getId(), currentUser);
+        if (existingNoteOpt.isEmpty()) {
             throw new IllegalArgumentException("Note not found or access denied with id: " + note.getId());
         }
 
+        Note existingNote = existingNoteOpt.get();
+
+        // Preserve existing relationships that should not be modified by basic note update
         note.setUser(currentUser);
+        note.setCreatedAt(existingNote.getCreatedAt()); // Preserve original creation time
+        note.setAttachments(existingNote.getAttachments()); // Preserve existing attachments
+        note.setOutgoingLinks(existingNote.getOutgoingLinks()); // Preserve existing links
+        note.setIncomingLinks(existingNote.getIncomingLinks()); // Preserve existing links
+        note.setNoteTags(existingNote.getNoteTags()); // Preserve existing tags (will be updated separately)
+
         return noteRepository.save(note);
     }
 

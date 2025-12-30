@@ -18,7 +18,7 @@
                         </h4>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{/tags}" method="post" th:object="${tag}">
+                        <form th:action="@{/tags}" method="post" th:object="${tag}" data-loading>
                             <div class="mb-3">
                                 <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="name" th:field="*{name}"

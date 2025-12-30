@@ -114,7 +114,7 @@
                             <div class="card-body">
                                 <!-- File Upload Form -->
                                 <div class="collapse" id="uploadForm">
-                                    <form th:action="@{/attachments/upload}" method="post" enctype="multipart/form-data" class="border p-3 rounded bg-light mb-3">
+                                    <form th:action="@{/attachments/upload}" method="post" enctype="multipart/form-data" class="border p-3 rounded bg-light mb-3" data-loading>
                                         <div class="mb-3">
                                             <label for="file" class="form-label">Choose File</label>
                                             <input type="file" class="form-control" id="file" name="file" required

@@ -26,7 +26,7 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-body">
-                        <form th:action="@{/groups/new}" th:object="${createGroupRequest}" method="post">
+                        <form th:action="@{/groups/new}" th:object="${createGroupRequest}" method="post" data-loading>
                             <!-- Name -->
                             <div class="mb-3">
                                 <label for="name" class="form-label">Group Name</label>

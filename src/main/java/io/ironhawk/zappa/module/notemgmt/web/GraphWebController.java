@@ -40,7 +40,19 @@ public class GraphWebController {
         List<Note> notes = getFilteredNotes(group, includeSubGroups, tags, tagFilter, model);
         List<NoteLink> links = getLinksForNotes(notes);
 
-        model.addAttribute("totalNodes", notes.size());
+        // Get only notes that have links (either as source or target)
+        Set<UUID> linkedNoteIds = new HashSet<>();
+        links.forEach(link -> {
+            linkedNoteIds.add(link.getSourceNote().getId());
+            linkedNoteIds.add(link.getTargetNote().getId());
+        });
+
+        // Filter notes to only include those that have links
+        List<Note> linkedNotes = notes.stream()
+            .filter(note -> linkedNoteIds.contains(note.getId()))
+            .collect(Collectors.toList());
+
+        model.addAttribute("totalNodes", linkedNotes.size());
         model.addAttribute("totalLinks", links.size());
         model.addAttribute("allGroups", groupService.getRootGroups());
 
@@ -71,8 +83,20 @@ public class GraphWebController {
         List<Note> notes = getFilteredNotes(group, includeSubGroups, tags, tagFilter, null);
         List<NoteLink> links = getLinksForNotes(notes);
 
-        // Create nodes data
-        List<Map<String, Object>> nodes = notes.stream()
+        // Get only notes that have links (either as source or target)
+        Set<UUID> linkedNoteIds = new HashSet<>();
+        links.forEach(link -> {
+            linkedNoteIds.add(link.getSourceNote().getId());
+            linkedNoteIds.add(link.getTargetNote().getId());
+        });
+
+        // Filter notes to only include those that have links
+        List<Note> linkedNotes = notes.stream()
+            .filter(note -> linkedNoteIds.contains(note.getId()))
+            .collect(Collectors.toList());
+
+        // Create nodes data only for linked notes
+        List<Map<String, Object>> nodes = linkedNotes.stream()
             .map(note -> {
                 Map<String, Object> node = new HashMap<>();
                 node.put("id", note.getId().toString());
