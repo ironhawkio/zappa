@@ -161,13 +161,10 @@
 
                                 <!-- Group Assignment Info -->
                                 <div class="mb-2">
-                                    <span th:if="${tag.group == null}" class="badge bg-success bg-opacity-25 text-success">
-                                        <i class="fas fa-globe me-1"></i>Global Tag
-                                    </span>
-                                    <span th:if="${tag.group != null}" class="badge bg-info bg-opacity-25 text-info">
-                                        <i th:class="${tag.group.icon ?: 'fas fa-folder'} + ' me-1'"
-                                           th:style="${tag.group.color != null} ? 'color: ' + ${tag.group.color} : ''"></i>
-                                        <span th:text="${tag.group.name}">Group Name</span>
+                                    <span class="badge bg-info bg-opacity-25 text-info">
+                                        <i th:class="${tag.group?.icon ?: 'fas fa-home'} + ' me-1'"
+                                           th:style="${tag.group?.color != null} ? 'color: ' + ${tag.group.color} : ''"></i>
+                                        <span th:text="${tag.group?.name ?: 'Default'}">Group Name</span>
                                     </span>
                                 </div>
 
@@ -284,8 +281,8 @@
                     <div class="mb-3">
                         <label for="groupSelect" class="form-label">Select Group</label>
                         <select class="form-select" id="groupSelect">
-                            <option value="">Global Tag (Available in all groups)</option>
-                            <optgroup label="Available Groups">
+                            <option value="">Default Group</option>
+                            <optgroup label="Other Groups">
                                 <option th:each="group : ${allGroups}"
                                         th:value="${group.id}"
                                         th:text="${group.name}"
@@ -297,7 +294,7 @@
                         </select>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
-                            Global tags are visible everywhere. Group tags are only visible in that group and its subgroups.
+                            Default group tags are visible everywhere. Other group tags are only visible in that group and its subgroups.
                         </div>
                     </div>
 
@@ -353,9 +350,8 @@
             if (!currentTagId) return;
 
             const groupId = document.getElementById('groupSelect').value;
-            const url = groupId
-                ? `/api/tags/${currentTagId}/move-to-group/${groupId}`
-                : `/api/tags/${currentTagId}/make-global`;
+            // If no group selected, move to Default group (handled by backend)
+            const url = `/api/tags/${currentTagId}/move-to-group/${groupId || 'default'}`;
 
             fetch(url, { method: 'PUT' })
                 .then(response => {

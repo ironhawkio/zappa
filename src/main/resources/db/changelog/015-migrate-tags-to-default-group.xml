@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="015-migrate-tags-to-default-group" author="system">
+        <comment>Migrate all existing tags with null group_id to Default group</comment>
+
+        <!-- First, ensure Default group exists for all users who have tags -->
+        <sql>
+            INSERT INTO groups (id, name, description, color, icon, user_id, sort_order, created_at, updated_at)
+            SELECT
+                gen_random_uuid(),
+                'Default',
+                'Default group for tags',
+                '#6c757d',
+                'fas fa-home',
+                t.user_id,
+                0,
+                NOW(),
+                NOW()
+            FROM (
+                SELECT DISTINCT user_id
+                FROM tags
+                WHERE group_id IS NULL
+            ) t
+            WHERE NOT EXISTS (
+                SELECT 1 FROM groups g
+                WHERE g.user_id = t.user_id
+                AND LOWER(g.name) = 'default'
+                AND g.parent_group_id IS NULL
+            );
+        </sql>
+
+        <!-- Then, update all tags with null group_id to point to their user's Default group -->
+        <sql>
+            UPDATE tags
+            SET group_id = (
+                SELECT g.id
+                FROM groups g
+                WHERE g.user_id = tags.user_id
+                AND LOWER(g.name) = 'default'
+                AND g.parent_group_id IS NULL
+                LIMIT 1
+            )
+            WHERE group_id IS NULL;
+        </sql>
+
+        <!-- Finally, make group_id NOT NULL since all tags should now have a group -->
+        <addNotNullConstraint tableName="tags" columnName="group_id" columnDataType="UUID"/>
+
+        <!-- Update foreign key to CASCADE instead of SET NULL -->
+        <dropForeignKeyConstraint baseTableName="tags" constraintName="fk_tags_group"/>
+        <addForeignKeyConstraint
+            baseTableName="tags"
+            baseColumnNames="group_id"
+            constraintName="fk_tags_group"
+            referencedTableName="groups"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <rollback>
+            <!-- Rollback: restore original foreign key -->
+            <dropForeignKeyConstraint baseTableName="tags" constraintName="fk_tags_group"/>
+            <addForeignKeyConstraint
+                baseTableName="tags"
+                baseColumnNames="group_id"
+                constraintName="fk_tags_group"
+                referencedTableName="groups"
+                referencedColumnNames="id"
+                onDelete="SET NULL"/>
+
+            <!-- Remove NOT NULL constraint -->
+            <dropNotNullConstraint tableName="tags" columnName="group_id" columnDataType="UUID"/>
+
+            <!-- Note: We cannot easily rollback the data migration,
+                 but tags will still function correctly -->
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

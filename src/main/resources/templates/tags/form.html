@@ -46,8 +46,8 @@
                             <div class="mb-3">
                                 <label for="groupId" class="form-label">Group Assignment</label>
                                 <select class="form-select" id="groupId" name="groupId" th:field="*{groupId}">
-                                    <option value="">Global Tag (Available in all groups)</option>
-                                    <optgroup label="Available Groups">
+                                    <option value="">Default Group</option>
+                                    <optgroup label="Other Groups">
                                         <option th:each="group : ${allGroups}"
                                                 th:value="${group.id}"
                                                 th:text="${group.name}"
@@ -59,8 +59,8 @@
                                 </select>
                                 <div class="form-text">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    <strong>Global tags</strong> are available in all groups.
-                                    <strong>Group tags</strong> are only available in the selected group and its subgroups.
+                                    <strong>Default group</strong> tags are available everywhere.
+                                    <strong>Specific group</strong> tags are only available in that group and its subgroups.
                                 </div>
                             </div>
 

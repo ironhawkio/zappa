@@ -38,4 +38,6 @@ public interface GroupService {
     List<Group> getGroupHierarchy(UUID groupId); // Get full path from root to group
     boolean hasAnyGroups(); // Check if current user has any groups
     Group createDefaultGroup(); // Create default group if user has none
+    Group getDefaultGroup(); // Get or create default group
+    Group findDefaultGroup(); // Find existing default group (may return null)
 }
