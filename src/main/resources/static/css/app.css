@@ -181,8 +181,8 @@ body {
     left: 50%;
     margin-left: -8px;
     margin-top: -8px;
-    border: 2px solid transparent;
-    border-top-color: currentColor;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -193,6 +193,33 @@ body {
     margin-left: -6px;
     margin-top: -6px;
     border-width: 1.5px;
+}
+
+/* Different colors for different button types */
+.btn-secondary.loading::after {
+    border: 2px solid rgba(108, 117, 125, 0.3);
+    border-top-color: #6c757d;
+}
+
+.btn-outline-primary.loading::after {
+    border: 2px solid rgba(13, 110, 253, 0.3);
+    border-top-color: #0d6efd;
+}
+
+/* Button loading with visible text */
+.btn.loading-with-text {
+    color: inherit !important;
+    opacity: 0.8;
+}
+
+.btn.loading-with-text .loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
