@@ -167,8 +167,6 @@
                                 </span>
                             </div>
                             <div class="card-body">
-                                <p class="card-text text-truncate"
-                                   th:text="${#strings.abbreviate(note.content, 100)}">Content preview...</p>
 
                                 <div class="mb-3">
                                     <span th:each="noteTag : ${note.noteTags}"
