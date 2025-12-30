@@ -81,11 +81,11 @@
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="tagNames" class="form-label">Tags</label>
-                                        <input type="text" class="form-control" id="tagNames" name="tagNames"
-                                               th:value="${#strings.listJoin(noteTags.![name], ', ')}"
-                                               placeholder="kafka, spring-boot, api">
+                                        <div id="tag-selector-edit" class="tag-selector-wrapper"></div>
+                                        <input type="hidden" class="form-control" id="tagNames" name="tagNames"
+                                               th:value="${#strings.listJoin(noteTags.![name], ', ')}">
                                         <div class="form-text">
-                                            Separate multiple tags with commas. Existing tags will be replaced.
+                                            Search and select existing tags or type to create new ones.
                                         </div>
                                     </div>
                                 </div>
@@ -353,9 +353,63 @@
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script src="/js/markdown-editor.js"></script>
+    <script src="/js/searchable-selector.js"></script>
 
     <script>
+        // Initialize searchable tag selector for note editing with server search
+        document.addEventListener('DOMContentLoaded', function() {
+            const initialTags = document.getElementById('tagNames').value;
+            const initialTagArray = initialTags ? initialTags.split(',').map(t => t.trim()).filter(t => t) : [];
+
+            // Convert tag names to tag objects
+            const selectedItems = initialTagArray.map(name => ({
+                name: name,
+                color: '#6c757d',
+                notesCount: 0
+            }));
+
+            new SearchableSelector({
+                container: '#tag-selector-edit',
+                data: [], // Start empty, will be populated via server search
+                selectedItems: selectedItems,
+                searchProperty: 'name',
+                displayProperty: 'name',
+                valueProperty: 'name',
+                placeholder: 'Search and select tags...',
+                // Enable server-side search
+                enableServerSearch: true,
+                serverSearchUrl: '/api/tags/search',
+                serverSearchQueryParam: 'query',
+                serverSearchMinLength: 1,
+                serverSearchDebounceMs: 300,
+                renderOption: (tag) => `
+                    <div class="d-flex align-items-center">
+                        <span class="badge me-2" style="background-color: ${tag.color || '#6c757d'};">
+                            ${tag.name}
+                        </span>
+                        <small class="text-muted">${tag.notesCount || 0} notes</small>
+                    </div>
+                `,
+                renderSelectedItem: (tag) => `
+                    <span class="badge bg-primary me-1">
+                        ${tag.name}
+                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6em;" aria-label="Remove"></button>
+                    </span>
+                `,
+                onSelectionChanged: (selectedTags) => {
+                    // Update hidden input for form submission
+                    const tagNamesInput = document.getElementById('tagNames');
+                    tagNamesInput.value = selectedTags.map(tag => tag.name).join(', ');
+                },
+                onServerSearchError: (error, searchTerm) => {
+                    console.warn('Tag search failed, falling back to client-side search:', error);
+                }
+            });
+        });
+    </script>
+
         function addTag(tagName) {
+            // This function is kept for compatibility with existing tag suggestions
             const tagInput = document.getElementById('tagNames');
             const currentTags = tagInput.value.split(',').map(t => t.trim()).filter(t => t);
 

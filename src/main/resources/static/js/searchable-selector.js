@@ -67,6 +67,16 @@ class SearchableSelector {
             onItemSelected: options.onItemSelected || (() => {}),
             onItemRemoved: options.onItemRemoved || (() => {}),
 
+            // Server search configuration
+            enableServerSearch: options.enableServerSearch || false,
+            serverSearchUrl: options.serverSearchUrl || null,
+            serverSearchQueryParam: options.serverSearchQueryParam || 'query',
+            serverSearchMinLength: options.serverSearchMinLength || 1,
+            serverSearchDebounceMs: options.serverSearchDebounceMs || 300,
+            onServerSearchStart: options.onServerSearchStart || (() => {}),
+            onServerSearchComplete: options.onServerSearchComplete || (() => {}),
+            onServerSearchError: options.onServerSearchError || (() => {}),
+
             // Custom CSS classes
             cssClasses: {
                 container: 'searchable-input-container',
@@ -85,6 +95,8 @@ class SearchableSelector {
         this.highlightedIndex = -1;
         this.currentSuggestion = '';
         this.searchTimeout = null;
+        this.serverSearchTimeout = null;
+        this.originalData = [...this.options.data]; // Keep original data for fallback
 
         this.init();
     }
@@ -159,20 +171,25 @@ class SearchableSelector {
         searchInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value;
 
-            if (searchTerm.length >= this.options.minSearchLength) {
-                this.updateSuggestion(searchTerm);
-
-                clearTimeout(this.searchTimeout);
-                this.searchTimeout = setTimeout(() => {
-                    const matchCount = this.filterOptions(searchTerm.toLowerCase());
-                    if (searchTerm.trim() && matchCount > 0) {
-                        this.showDropdown();
-                    } else if (!searchTerm.trim()) {
-                        this.hideDropdown();
-                    }
-                }, this.options.debounceMs);
+            if (this.options.enableServerSearch && this.options.serverSearchUrl) {
+                this.handleServerSearch(searchTerm);
             } else {
-                this.hideDropdown();
+                // Original client-side search logic (backward compatible)
+                if (searchTerm.length >= this.options.minSearchLength) {
+                    this.updateSuggestion(searchTerm);
+
+                    clearTimeout(this.searchTimeout);
+                    this.searchTimeout = setTimeout(() => {
+                        const matchCount = this.filterOptions(searchTerm.toLowerCase());
+                        if (searchTerm.trim() && matchCount > 0) {
+                            this.showDropdown();
+                        } else if (!searchTerm.trim()) {
+                            this.hideDropdown();
+                        }
+                    }, this.options.debounceMs);
+                } else {
+                    this.hideDropdown();
+                }
             }
         });
 
@@ -617,6 +634,163 @@ class SearchableSelector {
 
     destroy() {
         clearTimeout(this.searchTimeout);
+        clearTimeout(this.serverSearchTimeout);
         // Additional cleanup could be added here
+    }
+
+    // Server search functionality
+    handleServerSearch(searchTerm) {
+        // Always update suggestion for immediate feedback
+        if (searchTerm.length >= this.options.minSearchLength) {
+            this.updateSuggestion(searchTerm);
+        }
+
+        // Clear any existing server search timeout
+        clearTimeout(this.serverSearchTimeout);
+
+        if (searchTerm.length >= this.options.serverSearchMinLength) {
+            this.serverSearchTimeout = setTimeout(() => {
+                this.performServerSearch(searchTerm);
+            }, this.options.serverSearchDebounceMs);
+        } else {
+            // For short queries, fall back to original data or hide dropdown
+            this.options.data = [...this.originalData];
+            this.rebuildDropdown();
+
+            if (searchTerm.trim()) {
+                const matchCount = this.filterOptions(searchTerm.toLowerCase());
+                if (matchCount > 0) {
+                    this.showDropdown();
+                } else {
+                    this.hideDropdown();
+                }
+            } else {
+                this.hideDropdown();
+            }
+        }
+    }
+
+    async performServerSearch(searchTerm) {
+        try {
+            // Call the onServerSearchStart callback
+            this.options.onServerSearchStart(searchTerm);
+
+            // Show loading indicator
+            this.showSearchLoading();
+
+            // Construct the URL with query parameter
+            const url = new URL(this.options.serverSearchUrl, window.location.origin);
+            url.searchParams.set(this.options.serverSearchQueryParam, searchTerm);
+
+            const response = await fetch(url.toString());
+
+            if (!response.ok) {
+                throw new Error(`Server search failed: ${response.status} ${response.statusText}`);
+            }
+
+            const serverData = await response.json();
+
+            // Update data with server results
+            this.options.data = Array.isArray(serverData) ? serverData : [];
+            this.rebuildDropdown();
+
+            // Show dropdown if we have results
+            const matchCount = this.filterOptions(searchTerm.toLowerCase());
+            if (matchCount > 0) {
+                this.showDropdown();
+            } else {
+                this.hideDropdown();
+            }
+
+            // Call success callback
+            this.options.onServerSearchComplete(serverData, searchTerm);
+
+        } catch (error) {
+            console.error('Server search error:', error);
+
+            // Fall back to original data and client-side search
+            this.options.data = [...this.originalData];
+            this.rebuildDropdown();
+
+            const matchCount = this.filterOptions(searchTerm.toLowerCase());
+            if (searchTerm.trim() && matchCount > 0) {
+                this.showDropdown();
+            }
+
+            // Call error callback
+            this.options.onServerSearchError(error, searchTerm);
+
+        } finally {
+            this.hideSearchLoading();
+        }
+    }
+
+    showSearchLoading() {
+        const dropdown = this.elements.dropdown;
+        if (!dropdown) return;
+
+        // Remove existing loading indicator
+        this.hideSearchLoading();
+
+        // Add loading indicator
+        const loadingElement = document.createElement('div');
+        loadingElement.className = 'searchable-loading text-center py-3';
+        loadingElement.innerHTML = `
+            <div class="loading-spinner me-2"></div>
+            <span class="loading-text">Searching...</span>
+        `;
+
+        this.elements.dropdownContent.appendChild(loadingElement);
+        this.showDropdown();
+    }
+
+    hideSearchLoading() {
+        const loadingElement = this.elements.dropdown.querySelector('.searchable-loading');
+        if (loadingElement) {
+            loadingElement.remove();
+        }
+    }
+
+    rebuildDropdown() {
+        if (!this.elements.dropdownContent) return;
+
+        // Clear existing options (but keep any loading indicators)
+        const existingOptions = this.elements.dropdownContent.querySelectorAll(`.${this.options.cssClasses.option}`);
+        existingOptions.forEach(option => option.remove());
+
+        // Add new options
+        if (this.options.data && this.options.data.length > 0) {
+            const optionsHTML = this.options.data.map(item => this.createOptionHTML(item)).join('');
+
+            // Find the loading element if it exists
+            const loadingElement = this.elements.dropdownContent.querySelector('.searchable-loading');
+
+            if (loadingElement) {
+                // Insert new options before loading element
+                loadingElement.insertAdjacentHTML('beforebegin', optionsHTML);
+            } else {
+                // No loading element, append options
+                this.elements.dropdownContent.insertAdjacentHTML('beforeend', optionsHTML);
+            }
+
+            // Reattach event listeners for new options
+            this.attachOptionEventListeners();
+        }
+    }
+
+    attachOptionEventListeners() {
+        const options = this.elements.dropdownContent.querySelectorAll(`.${this.options.cssClasses.option}`);
+        options.forEach(option => {
+            // Remove any existing listeners to avoid duplicates
+            option.replaceWith(option.cloneNode(true));
+            const newOption = this.elements.dropdownContent.querySelector(`[data-item-value="${option.dataset.itemValue}"]`);
+
+            newOption.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const itemData = JSON.parse(newOption.dataset.itemData);
+                this.selectItem(itemData);
+            });
+        });
     }
 }
