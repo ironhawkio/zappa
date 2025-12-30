@@ -117,10 +117,10 @@
                                     <form th:action="@{/attachments/upload}" method="post" enctype="multipart/form-data" class="border p-3 rounded bg-light mb-3" data-loading>
                                         <div class="mb-3">
                                             <label for="file" class="form-label">Choose File</label>
-                                            <input type="file" class="form-control" id="file" name="file" required
+                                            <input type="file" class="form-control" id="file" name="file" required multiple
                                                    accept=".docx,.doc,.pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md">
                                             <div class="form-text">
-                                                Allowed: Word docs, PDFs, Images, Text files (Max 50MB)
+                                                Allowed: Word docs, PDFs, Images, Text files (Max 50MB). You can select multiple files.
                                             </div>
                                         </div>
                                         <input type="hidden" name="noteId" th:value="${note.id}">

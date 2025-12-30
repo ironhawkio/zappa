@@ -63,16 +63,31 @@ function setupTagInput() {
 }
 
 // Loading utilities
-function showButtonLoading(button) {
+function showButtonLoading(button, loadingText = null) {
     if (button) {
         button.classList.add('loading');
         button.disabled = true;
+
+        // If loading text is provided, store original and update
+        if (loadingText) {
+            button.setAttribute('data-original-html', button.innerHTML);
+            button.innerHTML = `<div class="loading-spinner me-2"></div>${loadingText}`;
+            button.classList.remove('loading'); // Remove the transparent text class
+            button.classList.add('loading-with-text');
+        }
     }
 }
 
 function hideButtonLoading(button) {
     if (button) {
-        button.classList.remove('loading');
+        // Restore original content if it was stored
+        const originalHtml = button.getAttribute('data-original-html');
+        if (originalHtml) {
+            button.innerHTML = originalHtml;
+            button.removeAttribute('data-original-html');
+        }
+
+        button.classList.remove('loading', 'loading-with-text');
         button.disabled = false;
     }
 }
@@ -109,12 +124,26 @@ function setupFormSubmission() {
             const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
 
             if (submitButton) {
-                showButtonLoading(submitButton);
+                // Check if this is a file upload form
+                const fileInputs = form.querySelectorAll('input[type="file"]');
+                const hasFiles = Array.from(fileInputs).some(input => input.files && input.files.length > 0);
 
-                // Auto-hide loading after timeout as fallback
+                // Show different loading states for file uploads vs regular forms
+                if (hasFiles && fileInputs.length > 0) {
+                    const fileCount = Array.from(fileInputs).reduce((total, input) => total + (input.files ? input.files.length : 0), 0);
+
+                    // Show loading with text for file uploads
+                    showButtonLoading(submitButton, `Uploading ${fileCount} file(s)...`);
+                } else {
+                    // Show regular loading spinner for other forms
+                    showButtonLoading(submitButton);
+                }
+
+                // Extended timeout for file uploads (2 minutes)
+                const timeout = hasFiles ? 120000 : 30000;
                 setTimeout(() => {
                     hideButtonLoading(submitButton);
-                }, 30000);
+                }, timeout);
             }
         });
     });
