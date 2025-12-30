@@ -26,7 +26,7 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-body">
-                        <form th:action="@{/admin/users/new}" th:object="${createUserRequest}" method="post">
+                        <form th:action="@{/admin/users/new}" th:object="${createUserRequest}" method="post" data-loading>
                             <!-- Username -->
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>

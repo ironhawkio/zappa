@@ -18,7 +18,7 @@
                         </h4>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{/notes/{id}/update(id=${note.id})}" method="post" th:object="${note}" enctype="multipart/form-data">
+                        <form th:action="@{/notes/{id}/update(id=${note.id})}" method="post" th:object="${note}" enctype="multipart/form-data" data-loading>
                             <div class="mb-3">
                                 <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="title" th:field="*{title}"
