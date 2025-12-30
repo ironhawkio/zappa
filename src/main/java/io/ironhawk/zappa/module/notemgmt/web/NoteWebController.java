@@ -46,7 +46,7 @@ public class NoteWebController {
     @GetMapping
     public String listNotes(
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size,
+        @RequestParam(defaultValue = "36") int size,
         @RequestParam(defaultValue = "") String search,
         @RequestParam(defaultValue = "") String tag,
         @RequestParam(defaultValue = "") String tags,
