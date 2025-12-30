@@ -122,6 +122,10 @@
                                             <div class="form-text">
                                                 Allowed: Word docs, PDFs, Images, Text files (Max 12MB). You can select multiple files.
                                             </div>
+                                            <div id="file-validation-error" class="text-danger mt-2" style="display: none;">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                <span id="file-error-message"></span>
+                                            </div>
                                         </div>
                                         <input type="hidden" name="noteId" th:value="${note.id}">
                                         <button type="submit" class="btn btn-primary btn-sm">
@@ -335,6 +339,81 @@
     <div th:replace="~{fragments/layout :: scripts}"></div>
 
     <script>
+        // File upload validation
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('file');
+            const uploadForm = fileInput?.closest('form');
+            const errorDiv = document.getElementById('file-validation-error');
+            const errorMessage = document.getElementById('file-error-message');
+            const submitButton = uploadForm?.querySelector('button[type="submit"]');
+
+            if (!fileInput || !uploadForm) return;
+
+            const MAX_FILE_SIZE = 12 * 1024 * 1024; // 12MB in bytes
+
+            function validateFiles() {
+                const files = Array.from(fileInput.files);
+                let isValid = true;
+                let errorMessages = [];
+
+                // Clear previous validation state
+                fileInput.classList.remove('is-invalid');
+                errorDiv.style.display = 'none';
+
+                if (files.length === 0) {
+                    return true; // No validation needed for empty selection
+                }
+
+                // Check each file size
+                files.forEach((file, index) => {
+                    if (file.size > MAX_FILE_SIZE) {
+                        isValid = false;
+                        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                        errorMessages.push(`"${file.name}" (${fileSizeMB}MB) exceeds 12MB limit`);
+                    }
+                });
+
+                if (!isValid) {
+                    // Show error state
+                    fileInput.classList.add('is-invalid');
+                    errorMessage.innerHTML = errorMessages.join('<br>');
+                    errorDiv.style.display = 'block';
+
+                    // Disable submit button
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.title = 'Please select files within the size limit';
+                    }
+                } else {
+                    // Enable submit button
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.title = '';
+                    }
+                }
+
+                return isValid;
+            }
+
+            // Validate on file selection
+            fileInput.addEventListener('change', function() {
+                validateFiles();
+            });
+
+            // Prevent form submission if validation fails
+            uploadForm.addEventListener('submit', function(e) {
+                if (!validateFiles()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Show error toast
+                    if (window.showToast) {
+                        showToast('Please select files within the 12MB size limit', 'danger');
+                    }
+                }
+            });
+        });
+
         function confirmDelete() {
             const noteId = document.querySelector('[data-id]').getAttribute('data-id');
             const form = document.getElementById('deleteForm');
