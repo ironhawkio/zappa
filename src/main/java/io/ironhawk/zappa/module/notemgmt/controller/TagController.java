@@ -84,9 +84,8 @@ public class TagController {
 
         try {
             Tag tag = Tag.forUpdate(request.getId(), request.getName(), request.getColor());
-
-            Tag updatedTag = tagService.updateTag(tag);
-            return ResponseEntity.ok(toTagResponse(updatedTag));
+            TagResponse response = tagService.updateTag(tag);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
@@ -153,16 +152,16 @@ public class TagController {
     public ResponseEntity<TagResponse> markAsKeyTag(@PathVariable UUID id) {
         log.info("Marking tag {} as key tag", id);
 
-        Tag tag = tagService.markAsKeyTag(id);
-        return ResponseEntity.ok(toTagResponse(tag));
+        TagResponse response = tagService.markAsKeyTag(id);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/unmark-key")
     public ResponseEntity<TagResponse> unmarkAsKeyTag(@PathVariable UUID id) {
         log.info("Unmarking tag {} as key tag", id);
 
-        Tag tag = tagService.unmarkAsKeyTag(id);
-        return ResponseEntity.ok(toTagResponse(tag));
+        TagResponse response = tagService.unmarkAsKeyTag(id);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/unused")

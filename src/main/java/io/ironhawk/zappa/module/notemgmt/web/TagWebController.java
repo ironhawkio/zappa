@@ -3,6 +3,7 @@ package io.ironhawk.zappa.module.notemgmt.web;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import io.ironhawk.zappa.module.notemgmt.dto.TagCreateRequest;
+import io.ironhawk.zappa.module.notemgmt.dto.TagResponse;
 import io.ironhawk.zappa.module.notemgmt.dto.TagUpdateRequest;
 import io.ironhawk.zappa.module.notemgmt.entity.Tag;
 import io.ironhawk.zappa.module.notemgmt.service.GroupService;
@@ -38,7 +39,9 @@ public class TagWebController {
         @RequestParam(defaultValue = "") String color,
         Model model) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+        // Sort by key tags first, then by name
+        Sort sort = Sort.by(Sort.Order.desc("isKey"), Sort.Order.asc("name"));
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<Tag> tags;
 
         if (!search.isEmpty()) {
@@ -169,14 +172,16 @@ public class TagWebController {
             // Move to target group if different from current
             if (existingTag.getGroup() == null || !existingTag.getGroup().getId().equals(targetGroupId)) {
                 existingTag = tagService.moveTagToGroup(id, targetGroupId);
+                String groupName = existingTag.getGroup().getName();
+                redirectAttributes.addFlashAttribute("success",
+                    "Tag '" + existingTag.getName() + "' moved to '" + groupName + "' group successfully!");
             } else {
                 // Same group, just update other properties
-                existingTag = tagService.updateTag(existingTag);
+                TagResponse updatedTagResponse = tagService.updateTag(existingTag);
+                String groupName = existingTag.getGroup().getName(); // Use existing tag's group
+                redirectAttributes.addFlashAttribute("success",
+                    "Tag '" + updatedTagResponse.getName() + "' updated successfully in '" + groupName + "' group!");
             }
-
-            String groupName = existingTag.getGroup().getName();
-            redirectAttributes.addFlashAttribute("success",
-                "Tag '" + existingTag.getName() + "' updated successfully in '" + groupName + "' group!");
             return "redirect:/tags/" + id;
         } catch (Exception e) {
             log.error("Error updating tag", e);
