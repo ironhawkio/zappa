@@ -17,6 +17,7 @@ public class TagResponse {
     private UUID id;
     private String name;
     private String color;
+    private boolean isKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long usageCount;

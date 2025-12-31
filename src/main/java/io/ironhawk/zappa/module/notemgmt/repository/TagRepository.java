@@ -37,6 +37,10 @@ public interface TagRepository extends JpaRepository<Tag, UUID> {
     // Find tags with pagination for specific user
     Page<Tag> findByUserAndNameContainingIgnoreCase(User user, String namePattern, Pageable pageable);
 
+    // Key tag operations
+    List<Tag> findByUserAndIsKeyTrueOrderByNameAsc(User user);
+    Page<Tag> findByUserAndIsKeyTrueOrderByNameAsc(User user, Pageable pageable);
+
     // Find tags used by a specific note
     @Query("SELECT DISTINCT t FROM Tag t JOIN t.noteTags nt WHERE nt.note.id = :noteId")
     List<Tag> findByNoteId(@Param("noteId") UUID noteId);

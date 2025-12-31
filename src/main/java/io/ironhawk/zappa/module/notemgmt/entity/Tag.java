@@ -30,6 +30,10 @@ public class Tag {
     @Column(length = 255)
     private String color;
 
+    @Column(name = "is_key", nullable = false)
+    @Builder.Default
+    private boolean isKey = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

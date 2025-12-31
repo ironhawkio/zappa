@@ -117,21 +117,34 @@ class MarkdownEditor {
             </div>
         `;
 
-        // Send to server for rendering
+        // Send to server for rendering with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/api/markdown/render', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ content: content })
+            body: JSON.stringify({ content: content }),
+            signal: controller.signal
         })
-        .then(response => response.text())
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response.text();
+        })
         .then(html => {
             this.preview.innerHTML = `<div class="confluence-content">${html}</div>`;
         })
         .catch(error => {
+            clearTimeout(timeoutId);
             console.error('Error rendering markdown:', error);
-            this.preview.innerHTML = '<div class="text-danger">Error rendering preview</div>';
+
+            if (error.name === 'AbortError') {
+                this.preview.innerHTML = '<div class="text-warning">Preview timeout - content too large or server busy</div>';
+            } else {
+                this.preview.innerHTML = '<div class="text-danger">Error rendering preview</div>';
+            }
         });
     }
 

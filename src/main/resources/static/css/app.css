@@ -46,6 +46,31 @@ body {
     border-radius: 0.5rem;
 }
 
+/* Key tag styling */
+.badge.key-tag {
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+    font-weight: 600;
+    position: relative;
+}
+
+.badge.key-tag::before {
+    content: '★';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ffd700;
+    font-size: 0.8em;
+    text-shadow: 0 0 3px rgba(255, 215, 0, 0.8);
+}
+
+.key-tag-indicator {
+    color: #ffd700;
+    text-shadow: 0 0 3px rgba(255, 215, 0, 0.5);
+    margin-right: 0.25rem;
+}
+
 /* Source badge colors */
 .badge.bg-bookmark { background-color: #ffc107 !important; }
 .badge.bg-confluence { background-color: #0052cc !important; }

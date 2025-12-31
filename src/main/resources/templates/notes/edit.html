@@ -92,7 +92,23 @@
                                             </div>
                                             <div class="form-tag-dropdown" id="formTagDropdownEdit" style="display: none;">
                                                 <div class="form-tag-dropdown-content">
-                                                    <div th:each="tag : ${allTags}"
+                                                    <!-- Key tags section -->
+                                                    <div th:if="${!#lists.isEmpty(allTags.?[key])}" class="key-tags-section">
+                                                        <div class="dropdown-header">
+                                                            <i class="fas fa-star key-tag-indicator"></i>Key Tags
+                                                        </div>
+                                                        <div th:each="tag : ${allTags.?[key]}"
+                                                             class="form-tag-option key-tag-option"
+                                                             th:data-tag-name="${tag.name}"
+                                                             th:data-tag-color="${tag.color}">
+                                                            <span class="form-tag-color-indicator" th:style="'background-color: ' + ${tag.color}"></span>
+                                                            <i class="fas fa-star key-tag-indicator me-1"></i>
+                                                            <span th:text="${tag.name}">Tag Name</span>
+                                                        </div>
+                                                        <div class="dropdown-divider"></div>
+                                                    </div>
+                                                    <!-- Regular tags section -->
+                                                    <div th:each="tag : ${allTags.?[!key]}"
                                                          class="form-tag-option"
                                                          th:data-tag-name="${tag.name}"
                                                          th:data-tag-color="${tag.color}">
@@ -468,6 +484,24 @@
             border-radius: 50%;
             margin-right: 0.5rem;
             border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .key-tag-option {
+            background-color: #fffbf0;
+            border-left: 3px solid #ffd700;
+            font-weight: 600;
+        }
+
+        .key-tag-option:hover {
+            background-color: #fff8e1;
+        }
+
+        .dropdown-header {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6c757d;
+            padding: 0.5rem;
+            margin: 0;
         }
     </style>
 

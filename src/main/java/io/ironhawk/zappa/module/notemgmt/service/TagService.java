@@ -34,6 +34,12 @@ public interface TagService {
     List<Tag> findTagsByNoteId(UUID noteId);
     List<Tag> findCoOccurringTags(UUID tagId);
 
+    // Key tag operations
+    Tag markAsKeyTag(UUID tagId);
+    Tag unmarkAsKeyTag(UUID tagId);
+    List<Tag> getKeyTags();
+    Page<Tag> getKeyTags(Pageable pageable);
+
     // Utility methods
     boolean tagExists(String name);
     Tag getOrCreateTag(String name, String color);
