@@ -29,4 +29,7 @@
     <include file="db/changelog/014-add-group-to-tags.xml"/>
     <include file="db/changelog/015-migrate-tags-to-default-group.xml"/>
 
+    <!-- Key tags feature -->
+    <include file="db/changelog/016-add-key-tags.xml"/>
+
 </databaseChangeLog>

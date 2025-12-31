@@ -137,6 +137,34 @@ public class TagController {
         return ResponseEntity.ok(responses);
     }
 
+    @GetMapping("/key")
+    public ResponseEntity<List<TagResponse>> getKeyTags() {
+        log.info("Fetching key tags");
+
+        List<Tag> tags = tagService.getKeyTags();
+        List<TagResponse> responses = tags.stream()
+            .map(this::toTagResponse)
+            .collect(Collectors.toList());
+
+        return ResponseEntity.ok(responses);
+    }
+
+    @PostMapping("/{id}/mark-key")
+    public ResponseEntity<TagResponse> markAsKeyTag(@PathVariable UUID id) {
+        log.info("Marking tag {} as key tag", id);
+
+        Tag tag = tagService.markAsKeyTag(id);
+        return ResponseEntity.ok(toTagResponse(tag));
+    }
+
+    @PostMapping("/{id}/unmark-key")
+    public ResponseEntity<TagResponse> unmarkAsKeyTag(@PathVariable UUID id) {
+        log.info("Unmarking tag {} as key tag", id);
+
+        Tag tag = tagService.unmarkAsKeyTag(id);
+        return ResponseEntity.ok(toTagResponse(tag));
+    }
+
     @GetMapping("/unused")
     public ResponseEntity<List<TagResponse>> getUnusedTags() {
         log.info("Fetching unused tags");
@@ -232,6 +260,7 @@ public class TagController {
             .id(tag.getId())
             .name(tag.getName())
             .color(tag.getColor())
+            .isKey(tag.isKey())
             .createdAt(tag.getCreatedAt())
             .updatedAt(tag.getUpdatedAt())
             .usageCount(usageCount)

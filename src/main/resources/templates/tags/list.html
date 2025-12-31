@@ -106,7 +106,7 @@
                 <!-- Tags grid -->
                 <div class="row">
                     <div th:each="tag : ${tags.content}" class="col-md-6 col-lg-4 col-xl-3 mb-3">
-                        <div class="card h-100">
+                        <div class="card h-100" th:classappend="${tag.key} ? 'key-tag-card' : ''">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <div class="d-flex align-items-start">
@@ -115,47 +115,44 @@
                                                th:data-name="${tag.name}"
                                                onchange="updateBulkActions()">
                                         <h6 class="card-title mb-0">
+                                            <i th:if="${tag.key}" class="fas fa-star key-tag-icon me-1" title="Key Tag"></i>
                                             <span class="badge me-2"
                                                   th:style="${tag.color != null} ? 'background-color: ' + ${tag.color} + ' !important' : ''"
                                                   th:classappend="${tag.color == null} ? 'bg-secondary' : ''"
                                                   th:text="${tag.name}">Tag Name</span>
                                         </h6>
                                     </div>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                                                type="button" data-bs-toggle="dropdown">
-                                            <i class="fas fa-ellipsis-v"></i>
+                                    <div class="btn-group" role="group">
+                                        <a class="btn btn-sm btn-outline-primary" th:href="@{/tags/{id}(id=${tag.id})}" title="View Tag">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a class="btn btn-sm btn-outline-secondary" th:href="@{/tags/{id}/edit(id=${tag.id})}" title="Edit Tag">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-info"
+                                                onclick="showGroupAssignModal(this)"
+                                                th:data-id="${tag.id}"
+                                                th:data-name="${tag.name}"
+                                                th:data-current-group="${tag.group?.id}"
+                                                title="Assign Group">
+                                            <i class="fas fa-sitemap"></i>
                                         </button>
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <a class="dropdown-item" th:href="@{/tags/{id}(id=${tag.id})}">
-                                                    <i class="fas fa-eye me-1"></i>View
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" th:href="@{/tags/{id}/edit(id=${tag.id})}">
-                                                    <i class="fas fa-edit me-1"></i>Edit
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <button class="dropdown-item"
-                                                        onclick="showGroupAssignModal(this)"
-                                                        th:data-id="${tag.id}"
-                                                        th:data-name="${tag.name}"
-                                                        th:data-current-group="${tag.group?.id}">
-                                                    <i class="fas fa-sitemap me-1"></i>Assign Group
-                                                </button>
-                                            </li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            <li>
-                                                <button class="dropdown-item text-danger"
-                                                        onclick="confirmDelete(this)"
-                                                        th:data-id="${tag.id}"
-                                                        th:data-name="${tag.name}">
-                                                    <i class="fas fa-trash me-1"></i>Delete
-                                                </button>
-                                            </li>
-                                        </ul>
+                                        <button class="btn btn-sm"
+                                                th:class="${tag.key} ? 'btn-warning' : 'btn-outline-warning'"
+                                                onclick="toggleKeyTag(this)"
+                                                th:data-id="${tag.id}"
+                                                th:data-name="${tag.name}"
+                                                th:data-is-key="${tag.key}"
+                                                th:title="${tag.key} ? 'Unmark as Key Tag' : 'Mark as Key Tag'">
+                                            <i th:class="${tag.key} ? 'fas fa-star' : 'far fa-star'"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                onclick="confirmDelete(this)"
+                                                th:data-id="${tag.id}"
+                                                th:data-name="${tag.name}"
+                                                title="Delete Tag">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -315,8 +312,52 @@
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
 
+    <style>
+        /* Key tag styling */
+        .key-tag-card {
+            border: 2px solid #ffd700 !important;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3) !important;
+            position: relative;
+            z-index: 1; /* Lower than modals */
+        }
+
+        .key-tag-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            height: 4px;
+            background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
+            border-radius: 0.375rem 0.375rem 0 0;
+        }
+
+        .key-tag-icon {
+            color: #ffd700;
+            text-shadow: 0 0 3px rgba(255, 215, 0, 0.5);
+            font-size: 0.9em;
+        }
+
+        .key-tag-card .card-title {
+            font-weight: 600;
+        }
+
+        .key-tag-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(255, 215, 0, 0.4) !important;
+        }
+
+        /* Key tag badge styling */
+        .key-tag-card .badge {
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+    </style>
+
     <script>
         let currentTagId = null;
+
 
         function confirmDelete(button) {
             const tagId = button.getAttribute('data-id');
@@ -329,6 +370,34 @@
 
             const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
             modal.show();
+        }
+
+        function toggleKeyTag(button) {
+            const tagId = button.getAttribute('data-id');
+            const tagName = button.getAttribute('data-name');
+            const isKey = button.getAttribute('data-is-key') === 'true';
+
+            const action = isKey ? 'unmark-key' : 'mark-key';
+            const url = `/api/tags/${tagId}/${action}`;
+
+            fetch(url, { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        // Reload the page to reflect changes
+                        location.reload();
+                    } else {
+                        console.error('Failed to toggle key tag status');
+                        if (window.showToast) {
+                            showToast('Failed to update key tag status', 'danger');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error toggling key tag:', error);
+                    if (window.showToast) {
+                        showToast('Error updating key tag status', 'danger');
+                    }
+                });
         }
 
         function showGroupAssignModal(button) {

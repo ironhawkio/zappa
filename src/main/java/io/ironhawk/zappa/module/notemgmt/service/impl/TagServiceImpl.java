@@ -194,6 +194,46 @@ public class TagServiceImpl implements TagService {
 
     @Override
     @Transactional
+    public Tag markAsKeyTag(UUID tagId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Marking tag {} as key tag for user: {}", tagId, currentUser.getUsername());
+
+        Tag tag = tagRepository.findByIdAndUser(tagId, currentUser)
+            .orElseThrow(() -> new IllegalArgumentException("Tag not found or access denied with id: " + tagId));
+
+        tag.setKey(true);
+        return tagRepository.save(tag);
+    }
+
+    @Override
+    @Transactional
+    public Tag unmarkAsKeyTag(UUID tagId) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.info("Unmarking tag {} as key tag for user: {}", tagId, currentUser.getUsername());
+
+        Tag tag = tagRepository.findByIdAndUser(tagId, currentUser)
+            .orElseThrow(() -> new IllegalArgumentException("Tag not found or access denied with id: " + tagId));
+
+        tag.setKey(false);
+        return tagRepository.save(tag);
+    }
+
+    @Override
+    public List<Tag> getKeyTags() {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching key tags for user: {}", currentUser.getUsername());
+        return tagRepository.findByUserAndIsKeyTrueOrderByNameAsc(currentUser);
+    }
+
+    @Override
+    public Page<Tag> getKeyTags(Pageable pageable) {
+        User currentUser = currentUserService.getCurrentUser();
+        log.debug("Fetching key tags with pagination: {} for user: {}", pageable, currentUser.getUsername());
+        return tagRepository.findByUserAndIsKeyTrueOrderByNameAsc(currentUser, pageable);
+    }
+
+    @Override
+    @Transactional
     public void deleteUnusedTags() {
         log.info("Deleting unused tags");
         List<Tag> unusedTags = findUnusedTags();
