@@ -1,5 +1,6 @@
 package io.ironhawk.zappa.module.notemgmt.service;
 
+import io.ironhawk.zappa.module.notemgmt.dto.TagResponse;
 import io.ironhawk.zappa.module.notemgmt.entity.Group;
 import io.ironhawk.zappa.module.notemgmt.entity.Tag;
 import org.springframework.data.domain.Page;
@@ -14,7 +15,7 @@ public interface TagService {
     // Basic CRUD operations
     Tag createTag(Tag tag);
     Optional<Tag> getTagById(UUID id);
-    Tag updateTag(Tag tag);
+    TagResponse updateTag(Tag tag);
     void deleteTag(UUID id);
     List<Tag> getAllTags();
 
@@ -35,8 +36,8 @@ public interface TagService {
     List<Tag> findCoOccurringTags(UUID tagId);
 
     // Key tag operations
-    Tag markAsKeyTag(UUID tagId);
-    Tag unmarkAsKeyTag(UUID tagId);
+    TagResponse markAsKeyTag(UUID tagId);
+    TagResponse unmarkAsKeyTag(UUID tagId);
     List<Tag> getKeyTags();
     Page<Tag> getKeyTags(Pageable pageable);
 

@@ -4,6 +4,7 @@ import io.ironhawk.zappa.module.notemgmt.entity.Tag;
 import io.ironhawk.zappa.module.notemgmt.service.TagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -75,27 +76,30 @@ public class TagApiController {
      * Move tag to different group
      */
     @PutMapping("/{tagId}/move-to-group/{groupId}")
-    public Tag moveTagToGroup(@PathVariable UUID tagId, @PathVariable UUID groupId) {
+    public ResponseEntity<Void> moveTagToGroup(@PathVariable UUID tagId, @PathVariable UUID groupId) {
         log.info("API request: moving tag {} to group {}", tagId, groupId);
-        return tagService.moveTagToGroup(tagId, groupId);
+        tagService.moveTagToGroup(tagId, groupId);
+        return ResponseEntity.ok().build();
     }
 
     /**
      * Make tag global (move to Default group)
      */
     @PutMapping("/{tagId}/make-global")
-    public Tag makeTagGlobal(@PathVariable UUID tagId) {
+    public ResponseEntity<Void> makeTagGlobal(@PathVariable UUID tagId) {
         log.info("API request: making tag {} global (Default group)", tagId);
-        return tagService.makeTagGlobal(tagId);
+        tagService.makeTagGlobal(tagId);
+        return ResponseEntity.ok().build();
     }
 
     /**
      * Move tag to Default group
      */
     @PutMapping("/{tagId}/move-to-group/default")
-    public Tag moveTagToDefaultGroup(@PathVariable UUID tagId) {
+    public ResponseEntity<Void> moveTagToDefaultGroup(@PathVariable UUID tagId) {
         log.info("API request: moving tag {} to Default group", tagId);
-        return tagService.makeTagGlobal(tagId);
+        tagService.makeTagGlobal(tagId);
+        return ResponseEntity.ok().build();
     }
 
     /**

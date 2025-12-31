@@ -2,12 +2,14 @@ package io.ironhawk.zappa.module.notemgmt.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.ironhawk.zappa.module.notemgmt.dto.TagResponse;
 import io.ironhawk.zappa.module.notemgmt.entity.Group;
 import io.ironhawk.zappa.module.notemgmt.entity.Tag;
 import io.ironhawk.zappa.module.notemgmt.repository.NoteTagRepository;
 import io.ironhawk.zappa.module.notemgmt.repository.TagRepository;
 import io.ironhawk.zappa.module.notemgmt.service.GroupService;
 import io.ironhawk.zappa.module.notemgmt.service.TagService;
+import io.ironhawk.zappa.module.notemgmt.service.NoteTagService;
 import io.ironhawk.zappa.security.entity.User;
 import io.ironhawk.zappa.security.service.CurrentUserService;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,7 @@ public class TagServiceImpl implements TagService {
     private final NoteTagRepository noteTagRepository;
     private final CurrentUserService currentUserService;
     private final GroupService groupService;
+    private final NoteTagService noteTagService;
 
     @Override
     @Transactional
@@ -54,7 +57,7 @@ public class TagServiceImpl implements TagService {
 
     @Override
     @Transactional
-    public Tag updateTag(Tag tag) {
+    public TagResponse updateTag(Tag tag) {
         User currentUser = currentUserService.getCurrentUser();
         log.info("Updating tag with id: {} for user: {}", tag.getId(), currentUser.getUsername());
 
@@ -71,7 +74,8 @@ public class TagServiceImpl implements TagService {
         // Set the current user to ensure user_id is not null
         tag.setUser(currentUser);
 
-        return tagRepository.save(tag);
+        Tag savedTag = tagRepository.save(tag);
+        return toTagResponse(savedTag);
     }
 
     @Override
@@ -194,7 +198,7 @@ public class TagServiceImpl implements TagService {
 
     @Override
     @Transactional
-    public Tag markAsKeyTag(UUID tagId) {
+    public TagResponse markAsKeyTag(UUID tagId) {
         User currentUser = currentUserService.getCurrentUser();
         log.info("Marking tag {} as key tag for user: {}", tagId, currentUser.getUsername());
 
@@ -202,12 +206,13 @@ public class TagServiceImpl implements TagService {
             .orElseThrow(() -> new IllegalArgumentException("Tag not found or access denied with id: " + tagId));
 
         tag.setKey(true);
-        return tagRepository.save(tag);
+        Tag savedTag = tagRepository.save(tag);
+        return toTagResponse(savedTag);
     }
 
     @Override
     @Transactional
-    public Tag unmarkAsKeyTag(UUID tagId) {
+    public TagResponse unmarkAsKeyTag(UUID tagId) {
         User currentUser = currentUserService.getCurrentUser();
         log.info("Unmarking tag {} as key tag for user: {}", tagId, currentUser.getUsername());
 
@@ -215,7 +220,8 @@ public class TagServiceImpl implements TagService {
             .orElseThrow(() -> new IllegalArgumentException("Tag not found or access denied with id: " + tagId));
 
         tag.setKey(false);
-        return tagRepository.save(tag);
+        Tag savedTag = tagRepository.save(tag);
+        return toTagResponse(savedTag);
     }
 
     @Override
@@ -466,5 +472,20 @@ public class TagServiceImpl implements TagService {
         // Move to Default group instead of null
         Group defaultGroup = groupService.getDefaultGroup();
         return moveTagToGroup(tagId, defaultGroup.getId());
+    }
+
+    // Helper method to convert Tag to TagResponse
+    private TagResponse toTagResponse(Tag tag) {
+        Long usageCount = noteTagService.countNotesForTag(tag.getId());
+
+        return TagResponse.builder()
+            .id(tag.getId())
+            .name(tag.getName())
+            .color(tag.getColor())
+            .isKey(tag.isKey())
+            .createdAt(tag.getCreatedAt())
+            .updatedAt(tag.getUpdatedAt())
+            .usageCount(usageCount)
+            .build();
     }
 }
