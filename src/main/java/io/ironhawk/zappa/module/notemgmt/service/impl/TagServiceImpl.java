@@ -122,14 +122,14 @@ public class TagServiceImpl implements TagService {
     public Page<Tag> getTags(Pageable pageable) {
         User currentUser = currentUserService.getCurrentUser();
         log.debug("Fetching tags with pagination: {} for user: {}", pageable, currentUser.getUsername());
-        return tagRepository.findByUserOrderByNameAsc(currentUser, pageable);
+        return tagRepository.findByUserOrderByIsKeyDescNameAsc(currentUser, pageable);
     }
 
     @Override
     public Page<Tag> searchTags(String namePattern, Pageable pageable) {
         User currentUser = currentUserService.getCurrentUser();
         log.debug("Searching tags with pattern: {} and pagination: {} for user: {}", namePattern, pageable, currentUser.getUsername());
-        return tagRepository.findByUserAndNameContainingIgnoreCase(currentUser, namePattern, pageable);
+        return tagRepository.findByUserAndNameContainingIgnoreCaseOrderByIsKeyDescNameAsc(currentUser, namePattern, pageable);
     }
 
     @Override

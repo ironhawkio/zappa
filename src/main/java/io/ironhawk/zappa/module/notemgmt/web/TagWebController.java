@@ -38,7 +38,9 @@ public class TagWebController {
         @RequestParam(defaultValue = "") String color,
         Model model) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+        // Sort by key tags first, then by name
+        Sort sort = Sort.by(Sort.Order.desc("isKey"), Sort.Order.asc("name"));
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<Tag> tags;
 
         if (!search.isEmpty()) {
