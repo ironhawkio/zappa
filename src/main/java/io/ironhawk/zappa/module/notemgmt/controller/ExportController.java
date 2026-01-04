@@ -88,11 +88,9 @@ public class ExportController {
             report.append("## NOTES ANALYSIS\n");
             report.append("Total Notes: ").append(allNotes.size()).append("\n\n");
 
-            // Sample recent notes with their tagging patterns
-            report.append("### Recent Notes with Tagging Patterns:\n");
-            allNotes.stream()
-                .limit(20) // Last 20 notes
-                .forEach(note -> {
+            // All notes with their tagging patterns
+            report.append("### All Notes with Tagging Patterns:\n");
+            allNotes.forEach(note -> {
                     List<Tag> noteTags = tagService.findTagsByNoteId(note.getId());
                     String tagList = noteTags.stream()
                         .map(tag -> tag.getName() + (tag.isKey() ? "⭐" : ""))
