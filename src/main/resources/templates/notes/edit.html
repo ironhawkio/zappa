@@ -533,20 +533,11 @@
                 toggleIcon.className = 'fas fa-eye';
                 toggleButton.title = 'Show Preview';
             }
-
-            // Store preference in localStorage
-            localStorage.setItem('note-preview-visible', previewVisible);
         }
 
         // Initialize form tag selector for edit form
         document.addEventListener('DOMContentLoaded', function() {
             initializeFormTagSelector('Edit');
-
-            // Restore preview preference
-            const savedPreference = localStorage.getItem('note-preview-visible');
-            if (savedPreference !== null && savedPreference === 'false') {
-                togglePreview(); // Hide preview if user previously hid it
-            }
         });
 
         function initializeFormTagSelector(formType) {
