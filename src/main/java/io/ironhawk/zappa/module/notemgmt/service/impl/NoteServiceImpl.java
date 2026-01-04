@@ -194,14 +194,24 @@ public class NoteServiceImpl implements NoteService {
     public Page<Note> getNotes(Pageable pageable) {
         User currentUser = currentUserService.getCurrentUser();
         log.debug("Fetching notes with pagination: {} for user: {}", pageable, currentUser.getUsername());
-        return noteRepository.findByUserOrderByCreatedAtDesc(currentUser, pageable);
+        Page<Note> notes = noteRepository.findByUserOrderByCreatedAtDesc(currentUser, pageable);
+
+        // Sort tags within each note (key tags first, then alphabetical)
+        notes.getContent().forEach(this::sortNoteTags);
+
+        return notes;
     }
 
     @Override
     public Page<Note> searchNotes(String searchTerm, Pageable pageable) {
         User currentUser = currentUserService.getCurrentUser();
         log.debug("Searching notes with term: {} and pagination: {} for user: {}", searchTerm, pageable, currentUser.getUsername());
-        return noteRepository.searchNotesByUser(currentUser, searchTerm, pageable);
+        Page<Note> notes = noteRepository.searchNotesByUser(currentUser, searchTerm, pageable);
+
+        // Sort tags within each note (key tags first, then alphabetical)
+        notes.getContent().forEach(this::sortNoteTags);
+
+        return notes;
     }
 
     @Override
@@ -236,7 +246,9 @@ public class NoteServiceImpl implements NoteService {
         if (tagNames == null || tagNames.isEmpty()) {
             return Page.empty(pageable);
         }
-        return noteRepository.findByAllTags(tagNames, tagNames.size(), pageable);
+        Page<Note> notes = noteRepository.findByAllTags(tagNames, tagNames.size(), pageable);
+        notes.getContent().forEach(this::sortNoteTags);
+        return notes;
     }
 
     @Override
@@ -245,7 +257,9 @@ public class NoteServiceImpl implements NoteService {
         if (tagNames == null || tagNames.isEmpty()) {
             return Page.empty(pageable);
         }
-        return noteRepository.findByAnyTags(tagNames, pageable);
+        Page<Note> notes = noteRepository.findByAnyTags(tagNames, pageable);
+        notes.getContent().forEach(this::sortNoteTags);
+        return notes;
     }
 
     @Override
@@ -272,20 +286,26 @@ public class NoteServiceImpl implements NoteService {
     public Page<Note> findNotesByGroup(UUID groupId, Pageable pageable) {
         User currentUser = currentUserService.getCurrentUser();
         log.debug("Finding notes by group with pagination: {} - {} for user: {}", groupId, pageable, currentUser.getUsername());
-        return noteRepository.findByUserAndGroupIdOrderByCreatedAtDesc(currentUser, groupId, pageable);
+        Page<Note> notes = noteRepository.findByUserAndGroupIdOrderByCreatedAtDesc(currentUser, groupId, pageable);
+        notes.getContent().forEach(this::sortNoteTags);
+        return notes;
     }
 
     @Override
     public Page<Note> findNotesByGroupIncludingSubGroups(UUID groupId, Pageable pageable) {
         log.debug("Finding notes by group including subgroups with pagination: {} - {}", groupId, pageable);
-        return noteRepository.findByGroupAndSubGroups(groupId, pageable);
+        Page<Note> notes = noteRepository.findByGroupAndSubGroups(groupId, pageable);
+        notes.getContent().forEach(this::sortNoteTags);
+        return notes;
     }
 
     @Override
     public Page<Note> findUngroupedNotes(Pageable pageable) {
         User currentUser = currentUserService.getCurrentUser();
         log.debug("Finding ungrouped notes with pagination: {} for user: {}", pageable, currentUser.getUsername());
-        return noteRepository.findByUserAndGroupIsNullOrderByCreatedAtDesc(currentUser, pageable);
+        Page<Note> notes = noteRepository.findByUserAndGroupIsNullOrderByCreatedAtDesc(currentUser, pageable);
+        notes.getContent().forEach(this::sortNoteTags);
+        return notes;
     }
 
     @Override
@@ -313,5 +333,27 @@ public class NoteServiceImpl implements NoteService {
 
         note.setGroup(null);
         return noteRepository.save(note);
+    }
+
+    // Helper method to sort tags within a note (key tags first, then alphabetical)
+    private void sortNoteTags(Note note) {
+        if (note.getNoteTags() != null && !note.getNoteTags().isEmpty()) {
+            // Convert Set to sorted List temporarily
+            List<NoteTag> sortedNoteTags = note.getNoteTags().stream()
+                .sorted((nt1, nt2) -> {
+                    // First sort by key status (key tags first)
+                    int keyComparison = Boolean.compare(nt2.getTag().isKey(), nt1.getTag().isKey());
+                    if (keyComparison != 0) {
+                        return keyComparison;
+                    }
+                    // Then sort alphabetically by name
+                    return nt1.getTag().getName().compareToIgnoreCase(nt2.getTag().getName());
+                })
+                .toList();
+
+            // Clear and repopulate the set with sorted order
+            note.getNoteTags().clear();
+            note.getNoteTags().addAll(sortedNoteTags);
+        }
     }
 }

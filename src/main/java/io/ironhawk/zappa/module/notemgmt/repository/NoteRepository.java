@@ -20,6 +20,14 @@ public interface NoteRepository extends JpaRepository<Note, UUID> {
     // User-specific note queries
     List<Note> findByUserOrderByCreatedAtDesc(User user);
     Page<Note> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+
+    // Notes with ordered tags (key tags first, then alphabetical)
+    @Query("SELECT DISTINCT n FROM Note n " +
+           "LEFT JOIN FETCH n.noteTags nt " +
+           "LEFT JOIN FETCH nt.tag t " +
+           "WHERE n.user = :user " +
+           "ORDER BY n.createdAt DESC")
+    Page<Note> findByUserWithOrderedTags(@Param("user") User user, Pageable pageable);
     Optional<Note> findByIdAndUser(UUID id, User user);
 
     // Find notes by title (case-insensitive) for specific user

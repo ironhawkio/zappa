@@ -22,7 +22,9 @@ spring:
     show-sql: ${SPRING_JPA_SHOW_SQL:true}
     properties:
       hibernate:
-        format_sql: ${SPRING_JPA_HIBERNATE_FORMAT_SQL:true}
+        format_sql: ${SPRING_JPA_HIBERNATE_FORMAT_SQL:false}
+        show_sql_comments: ${SPRING_JPA_HIBERNATE_SHOW_SQL_COMMENTS:true}
+        use_sql_comments: ${SPRING_JPA_HIBERNATE_USE_SQL_COMMENTS:true}
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           time_zone: UTC
@@ -38,6 +40,28 @@ spring:
       enabled: ${SPRING_SERVLET_MULTIPART_ENABLED:true}
       max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:12MB}
       max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:12MB}
+
+# Logging configuration
+logging:
+  level:
+    # SQL and database logging
+    org.hibernate.SQL: ${HIBERNATE_SQL_LOG_LEVEL:DEBUG}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}
+    org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}
+
+    # Application execution monitoring
+    io.ironhawk.zappa.module.notemgmt: ${APP_NOTE_LOG_LEVEL:INFO}
+    io.ironhawk.zappa.security: ${APP_SECURITY_LOG_LEVEL:INFO}
+    io.ironhawk.zappa.common: ${APP_COMMON_LOG_LEVEL:INFO}
+
+    # Spring Security monitoring
+    org.springframework.security: ${SPRING_SECURITY_LOG_LEVEL:INFO}
+
+    # Web request monitoring
+    org.springframework.web.servlet.DispatcherServlet: ${WEB_REQUEST_LOG_LEVEL:DEBUG}
+
+    # Transaction monitoring
+    org.springframework.transaction: ${TRANSACTION_LOG_LEVEL:DEBUG}
 
 # Application configuration
 app:

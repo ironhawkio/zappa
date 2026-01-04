@@ -55,6 +55,9 @@ public class NoteWebController {
         @RequestParam(defaultValue = "false") boolean includeSubGroups,
         Model model) {
 
+        log.info("EXEC: List notes request - page:{}, size:{}, search:'{}', tag:'{}', tags:'{}', group:'{}', includeSubGroups:{}",
+                 page, size, search, tag, tags, group, includeSubGroups);
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Note> notes;
 
@@ -117,6 +120,10 @@ public class NoteWebController {
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", notes.getTotalPages());
 
+        log.info("EXEC: List notes completed - found {} notes, showing page {} of {}, execution_time: {}ms",
+                 notes.getTotalElements(), notes.getNumber() + 1, notes.getTotalPages(),
+                 System.currentTimeMillis() % 1000); // Simple execution time indicator
+
         return "notes/list";
     }
 
@@ -148,6 +155,10 @@ public class NoteWebController {
         @RequestParam(required = false) String noteLinks,
         @RequestParam(value = "uploadFiles", required = false) MultipartFile[] attachments,
         RedirectAttributes redirectAttributes) {
+
+        long startTime = System.currentTimeMillis();
+        log.info("EXEC: Create note request - title:'{}', tags:'{}', group:'{}', attachments:{}",
+                 note.getTitle(), tagNames, groupId, attachments != null ? attachments.length : 0);
 
         try {
             // Set group if provided
@@ -223,9 +234,13 @@ public class NoteWebController {
                 redirectAttributes.addFlashAttribute("success", "Note created successfully!");
             }
 
+            long executionTime = System.currentTimeMillis() - startTime;
+            log.info("EXEC: Create note completed - id:{}, execution_time:{}ms", createdNote.getId(), executionTime);
+
             return "redirect:/notes/" + createdNote.getId();
         } catch (Exception e) {
-            log.error("Error creating note", e);
+            long executionTime = System.currentTimeMillis() - startTime;
+            log.error("EXEC: Create note failed - execution_time:{}ms, error:{}", executionTime, e.getMessage());
             redirectAttributes.addFlashAttribute("error", "Error creating note: " + e.getMessage());
             return "redirect:/notes/new";
         }
