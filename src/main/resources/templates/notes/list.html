@@ -172,9 +172,7 @@
                                 <div class="tags-section mb-3">
                                     <div th:if="${!#lists.isEmpty(note.noteTags)}">
                                         <span th:each="noteTag : ${note.noteTags}"
-                                              class="badge me-1"
-                                              th:classappend="${noteTag.tag.key} ? 'key-tag' : 'bg-light text-dark'"
-                                              th:style="${noteTag.tag.color != null and !noteTag.tag.key} ? 'background-color: ' + ${noteTag.tag.color} + ' !important; color: white;' : ''"
+                                              class="badge bg-light text-dark me-1"
                                               th:text="${noteTag.tag.name}">tag</span>
                                     </div>
                                     <div th:if="${#lists.isEmpty(note.noteTags)}" class="text-muted small">
