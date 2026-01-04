@@ -49,10 +49,6 @@
                         <li><a class="dropdown-item" th:href="@{/admin/users}">
                             <i class="fas fa-users me-1"></i>User Management
                         </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/api/export/notes-and-tags-report" target="_blank">
-                            <i class="fas fa-download me-1"></i>Export Report for AI Analysis
-                        </a></li>
                     </ul>
                 </li>
 <!--                <li class="nav-item">-->
@@ -83,6 +79,10 @@
                         <li><small class="dropdown-item-text text-muted">
                             <span sec:authentication="principal.email">email@example.com</span>
                         </small></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/api/export/notes-and-tags-report" target="_blank">
+                            <i class="fas fa-download me-1"></i>Export Report for AI Analysis
+                        </a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="#" onclick="document.getElementById('logoutForm').submit();">
                             <i class="fas fa-sign-out-alt me-1"></i>Logout
